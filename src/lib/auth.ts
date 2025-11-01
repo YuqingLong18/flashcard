@@ -70,7 +70,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "local-dev-secret-change-me",
 };
 
 export function getCurrentSession() {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -188,6 +189,11 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
           <p className="text-sm text-neutral-500">
             Great job! Let your teacher know you&apos;re ready for the next challenge.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button asChild variant="outline">
+              <Link href="/join">Join another session</Link>
+            </Button>
+          </div>
         </div>
       ) : card ? (
         <>

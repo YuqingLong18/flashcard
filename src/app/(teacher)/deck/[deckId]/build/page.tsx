@@ -1,21 +1,35 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { DeckBuilder } from "@/components/decks/deck-builder";
 import { PlayDeckButton } from "@/components/decks/play-deck-button";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
+import { requireSessionUser } from "@/lib/session";
 import { formatDistanceToNow } from "date-fns";
 
+export const dynamic = "force-dynamic";
+
 interface BuildPageProps {
-  params: {
+  params: Promise<{
     deckId: string;
-  };
+  }>;
 }
 
 export default async function DeckBuildPage({ params }: BuildPageProps) {
+  const { deckId } = await params;
+  const { session, userId } = await requireSessionUser();
+
+  if (!session?.user || !userId) {
+    redirect("/login");
+  }
+
+  if (!deckId) {
+    notFound();
+  }
+
   const deck = await prisma.deck.findUnique({
-    where: { id: params.deckId },
+    where: { id: deckId },
     include: {
       cards: {
         orderBy: [{ createdAt: "asc" }],
@@ -23,7 +37,7 @@ export default async function DeckBuildPage({ params }: BuildPageProps) {
     },
   });
 
-  if (!deck) {
+  if (!deck || deck.ownerId !== userId) {
     notFound();
   }
 

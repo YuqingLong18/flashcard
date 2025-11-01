@@ -7,9 +7,9 @@ import { cleanContent } from "@/lib/sanitize";
 import { deckUpdateSchema } from "@/lib/validators";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     deckId: string;
-  };
+  }>;
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return guard.error;
   }
 
-  const { deckId } = context.params;
+  const { deckId } = await context.params;
 
   const deck = await prisma.deck.findFirst({
     where: {
@@ -45,7 +45,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return guard.error;
   }
 
-  const { deckId } = context.params;
+  const { deckId } = await context.params;
 
   try {
     const body = await request.json();
@@ -96,7 +96,7 @@ export async function DELETE(_: NextRequest, context: RouteContext) {
     return guard.error;
   }
 
-  const { deckId } = context.params;
+  const { deckId } = await context.params;
 
   try {
     const existing = await prisma.deck.findFirst({

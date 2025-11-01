@@ -1,21 +1,34 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { prisma } from "@/lib/prisma";
+import { requireSessionUser } from "@/lib/session";
+
+export const dynamic = "force-dynamic";
 
 interface AnalyticsPageProps {
-  params: {
+  params: Promise<{
     deckId: string;
-  };
+  }>;
 }
 
 export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) {
+  const { deckId } = await params;
+  const { session, userId } = await requireSessionUser();
+  if (!session?.user || !userId) {
+    redirect("/login");
+  }
+
+  if (!deckId) {
+    notFound();
+  }
+
   const deck = await prisma.deck.findUnique({
-    where: { id: params.deckId },
+    where: { id: deckId },
     include: {
       cards: {
         orderBy: [{ createdAt: "asc" }],
@@ -23,7 +36,7 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
     },
   });
 
-  if (!deck) {
+  if (!deck || deck.ownerId !== userId) {
     notFound();
   }
 

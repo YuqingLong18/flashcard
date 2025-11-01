@@ -5,16 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { prisma } from "@/lib/prisma";
 
 interface PlayPageProps {
-  params: {
+  params: Promise<{
     runId: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     playerId?: string;
-  };
+  }>;
 }
 
 export default async function PlayPage({ params, searchParams }: PlayPageProps) {
-  const playerId = searchParams.playerId;
+  const [{ runId }, { playerId }] = await Promise.all([params, searchParams]);
 
   if (!playerId) {
     return (
@@ -38,7 +38,7 @@ export default async function PlayPage({ params, searchParams }: PlayPageProps) 
   }
 
   const run = await prisma.deckRun.findUnique({
-    where: { id: params.runId },
+    where: { id: runId },
     select: {
       id: true,
       status: true,

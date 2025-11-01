@@ -7,9 +7,9 @@ import { cleanContent } from "@/lib/sanitize";
 import { cardUpdateSchema } from "@/lib/validators";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     cardId: string;
-  };
+  }>;
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -18,7 +18,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return guard.error;
   }
 
-  const { cardId } = context.params;
+  const { cardId } = await context.params;
 
   try {
     const body = await request.json();
@@ -71,7 +71,7 @@ export async function DELETE(_: NextRequest, context: RouteContext) {
     return guard.error;
   }
 
-  const { cardId } = context.params;
+  const { cardId } = await context.params;
 
   try {
     const card = await prisma.card.findUnique({

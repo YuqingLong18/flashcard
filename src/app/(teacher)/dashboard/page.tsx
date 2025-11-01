@@ -11,11 +11,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { requireSessionUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { formatDistanceToNow } from "date-fns";
 
 export default async function DashboardPage() {
+  const { session, userId } = await requireSessionUser();
+  if (!session?.user || !userId) {
+    return null;
+  }
+
   const decks = await prisma.deck.findMany({
+    where: { ownerId: userId },
     orderBy: [{ updatedAt: "desc" }],
     include: {
       _count: {

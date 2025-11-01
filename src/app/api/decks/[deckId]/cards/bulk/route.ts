@@ -7,9 +7,9 @@ import { cleanContent } from "@/lib/sanitize";
 import { bulkImportSchema } from "@/lib/validators";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     deckId: string;
-  };
+  }>;
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return guard.error;
   }
 
-  const { deckId } = context.params;
+  const { deckId } = await context.params;
 
   try {
     const body = await request.json();

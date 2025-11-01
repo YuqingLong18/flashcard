@@ -30,7 +30,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { deckCreateSchema } from "@/lib/validators";
 
 const schema = deckCreateSchema.extend({
-  title: deckCreateSchema.shape.title.min(3, "Title is too short."),
+  title: z
+    .string()
+    .min(3, "Title is too short.")
+    .max(120, "Title is too long.")
+    .transform((value) => value.trim()),
 });
 
 export function CreateDeckDialog() {

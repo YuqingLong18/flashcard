@@ -2,9 +2,9 @@ import { jsonError, jsonOk } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     runId: string;
-  };
+  }>;
 }
 
 export async function GET(request: Request, context: RouteContext) {
@@ -14,7 +14,7 @@ export async function GET(request: Request, context: RouteContext) {
     return jsonError("playerId is required.", 400);
   }
 
-  const { runId } = context.params;
+  const { runId } = await context.params;
 
   const player = await prisma.player.findUnique({
     where: { id: playerId },

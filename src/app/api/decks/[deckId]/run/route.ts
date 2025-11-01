@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { generateRunCode } from "@/lib/run-code";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     deckId: string;
-  };
+  }>;
 }
 
 const ttlMinutes = Number.parseInt(process.env.RUN_CODE_TTL_MINUTES ?? "120", 10);
@@ -17,7 +17,7 @@ export async function POST(_: Request, context: RouteContext) {
     return guard.error;
   }
 
-  const { deckId } = context.params;
+  const { deckId } = await context.params;
 
   try {
     const deck = await prisma.deck.findFirst({

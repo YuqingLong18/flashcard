@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { answerSchema } from "@/lib/validators";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     runId: string;
-  };
+  }>;
 }
 
 export async function POST(request: Request, context: RouteContext) {
@@ -16,7 +16,7 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError(parsed.error.message, 400);
     }
 
-    const { runId } = context.params;
+    const { runId } = await context.params;
     const { playerId, cardId, label } = parsed.data;
 
     const run = await prisma.deckRun.findUnique({

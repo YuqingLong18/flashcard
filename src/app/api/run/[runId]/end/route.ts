@@ -3,9 +3,9 @@ import { requireTeacher } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     runId: string;
-  };
+  }>;
 }
 
 export async function POST(_: Request, context: RouteContext) {
@@ -14,7 +14,7 @@ export async function POST(_: Request, context: RouteContext) {
     return guard.error;
   }
 
-  const { runId } = context.params;
+  const { runId } = await context.params;
 
   try {
     const run = await prisma.deckRun.findFirst({

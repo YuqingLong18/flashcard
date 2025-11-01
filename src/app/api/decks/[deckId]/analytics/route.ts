@@ -3,9 +3,9 @@ import { requireTeacher } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
 
 interface RouteContext {
-  params: {
+  params: Promise<{
     deckId: string;
-  };
+  }>;
 }
 
 export async function GET(_: Request, context: RouteContext) {
@@ -14,7 +14,7 @@ export async function GET(_: Request, context: RouteContext) {
     return guard.error;
   }
 
-  const { deckId } = context.params;
+  const { deckId } = await context.params;
 
   const deck = await prisma.deck.findFirst({
     where: { id: deckId, ownerId: guard.session.user.id },
