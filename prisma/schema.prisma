@@ -1,0 +1,166 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  TEACHER
+  ADMIN
+}
+
+enum RunStatus {
+  ACTIVE
+  ENDED
+  EXPIRED
+}
+
+enum Click {
+  KNOW
+  REFRESHER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  role          Role      @default(TEACHER)
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  decks         Deck[]    @relation("DeckOwner")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Deck {
+  id          String    @id @default(cuid())
+  ownerId     String
+  owner       User      @relation("DeckOwner", fields: [ownerId], references: [id])
+  title       String
+  description String?
+  language    String?
+  isPublished Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  cards       Card[]
+  runs        DeckRun[]
+
+  @@index([ownerId])
+}
+
+model Card {
+  id        String            @id @default(cuid())
+  deckId    String
+  deck      Deck              @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  front     String
+  back      String
+  imageUrl  String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  states    PlayerCardState[]
+  responses Response[]
+
+  @@index([deckId])
+}
+
+model DeckRun {
+  id              String    @id @default(cuid())
+  deckId          String
+  deck            Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  code            String    @unique
+  status          RunStatus @default(ACTIVE)
+  expiresAt       DateTime
+  snapshotCardIds String[]
+  createdAt       DateTime  @default(now())
+  players         Player[]
+
+  @@index([deckId])
+  @@index([code])
+}
+
+model Player {
+  id        String            @id @default(cuid())
+  runId     String
+  run       DeckRun           @relation(fields: [runId], references: [id], onDelete: Cascade)
+  nickname  String?
+  joinedAt  DateTime          @default(now())
+  states    PlayerCardState[]
+  responses Response[]
+
+  @@index([runId])
+}
+
+model PlayerCardState {
+  id             String   @id @default(cuid())
+  playerId       String
+  player         Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  cardId         String
+  card           Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  knowCount      Int      @default(0)
+  refresherCount Int      @default(0)
+  weight         Float    @default(1.0)
+  mastered       Boolean  @default(false)
+  updatedAt      DateTime @updatedAt
+
+  @@unique([playerId, cardId])
+  @@index([playerId, mastered])
+}
+
+model Response {
+  id        String   @id @default(cuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  cardId    String
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  label     Click
+  createdAt DateTime @default(now())
+
+  @@index([playerId, createdAt])
+  @@index([cardId, createdAt])
+}
