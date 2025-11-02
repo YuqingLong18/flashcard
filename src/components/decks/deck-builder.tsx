@@ -58,9 +58,9 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
         />
         <BulkImportForm deckId={deck.id} onComplete={() => router.refresh()} />
       </aside>
-      <section className="space-y-4">
+      <section className="space-y-4 rounded-2xl border border-[#dccaFF] bg-[#fbf8ff] p-5 shadow-[0_10px_35px_-30px_rgba(120,80,185,0.55)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold text-neutral-900">Cards</h2>
+          <h2 className="text-xl font-semibold text-[#3f2b7f]">Cards</h2>
           <AddCardDialog deckId={deck.id} onComplete={() => router.refresh()} />
         </div>
         <CardTable cards={deck.cards} onChanged={() => router.refresh()} />
@@ -147,9 +147,9 @@ function DeckMetadataForm({
   };
 
   return (
-    <div className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-5">
+    <div className="space-y-4 rounded-2xl border border-[#dccaff] bg-[#fbf8ff] p-5 shadow-[0_10px_35px_-30px_rgba(120,80,185,0.6)]">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-neutral-900">Deck settings</h2>
+        <h2 className="text-lg font-semibold text-[#402c7c]">Deck settings</h2>
         <Button
           size="sm"
           variant={isPublished ? "outline" : "default"}
@@ -205,7 +205,7 @@ function DeckMetadataForm({
           </Button>
         </form>
       </Form>
-      <p className="text-xs text-neutral-500">
+      <p className="text-xs text-[#7a68b6]">
         Publish to allow live runs. Students can only join published decks.
       </p>
     </div>
@@ -244,13 +244,13 @@ function BulkImportForm({ deckId, onComplete }: { deckId: string; onComplete: ()
   };
 
   return (
-    <div className="space-y-4 rounded-2xl border border-dashed border-neutral-200 bg-neutral-50 p-5">
+    <div className="space-y-4 rounded-2xl border border-dashed border-[#d9c8ff] bg-[#f5efff] p-5">
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-neutral-900">Bulk import</h3>
-        <p className="text-xs text-neutral-500">
-          Paste CSV rows with <code className="rounded bg-neutral-200 px-1">front</code>,
-          <code className="rounded bg-neutral-200 px-1">back</code>, and optional
-          <code className="rounded bg-neutral-200 px-1">imageUrl</code> columns.
+        <h3 className="text-sm font-semibold text-[#3f2b7f]">Bulk import</h3>
+        <p className="text-xs text-[#7a68b6]">
+          Paste CSV rows with <code className="rounded bg-[#efe4ff] px-1">front</code>,
+          <code className="rounded bg-[#efe4ff] px-1">back</code>, and optional
+          <code className="rounded bg-[#efe4ff] px-1">imageUrl</code> columns.
         </p>
       </div>
       <Textarea
@@ -397,15 +397,15 @@ function CardTable({
 }) {
   if (cards.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-neutral-200 bg-white py-16 text-center">
-        <p className="text-sm text-neutral-500">No cards yet. Add your first one to get started.</p>
+      <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-[#d9c8ff] bg-[#f9f5ff] py-16 text-center">
+        <p className="text-sm text-[#5a46a5]">No cards yet. Add your first one to get started.</p>
         <Skeleton className="h-3 w-40 rounded" />
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white">
+    <div className="overflow-hidden rounded-2xl border border-[#dccaFF] bg-[#fbf8ff] shadow-[0_12px_36px_-28px_rgba(120,80,185,0.6)]">
       <Table>
         <TableHeader>
           <TableRow>
@@ -419,18 +419,18 @@ function CardTable({
           {cards.map((card) => (
             <TableRow key={card.id} className="align-top">
               <TableCell>
-                <p className="whitespace-pre-wrap text-sm text-neutral-800">
+                <p className="whitespace-pre-wrap text-sm text-[#2f1d59]">
                   {card.front}
                 </p>
               </TableCell>
               <TableCell>
-                <p className="whitespace-pre-wrap text-sm text-neutral-600">
+                <p className="whitespace-pre-wrap text-sm text-[#5a46a5]">
                   {card.back}
                 </p>
               </TableCell>
               <TableCell>
                 {card.imageUrl ? (
-                  <div className="flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg border bg-neutral-100">
+                  <div className="flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg border border-[#e2d3ff] bg-[#f4ecff]">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={card.imageUrl}
@@ -439,7 +439,7 @@ function CardTable({
                     />
                   </div>
                 ) : (
-                  <span className="text-xs text-neutral-400">None</span>
+                  <span className="text-xs text-[#8f7cc8]">None</span>
                 )}
               </TableCell>
               <TableCell className="text-right">
@@ -677,7 +677,7 @@ function EditCardDialog({
                         />
                       </div>
                     ) : (
-                      <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-100 py-6 text-center text-sm text-neutral-500">
+                      <div className="rounded-xl border border-dashed border-[#d9c8ff] bg-[#f4ecff] py-6 text-center text-sm text-[#6d53ad]">
                         No image attached.
                       </div>
                     )}

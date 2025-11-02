@@ -158,23 +158,23 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
   if (loading && !card && !finished) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
-        <div className="h-32 w-72 animate-pulse rounded-3xl bg-neutral-200" />
-        <p className="text-sm text-neutral-500">Loading your first card…</p>
+        <div className="h-32 w-72 animate-pulse rounded-3xl bg-[#efe4ff]" />
+        <p className="text-sm text-[#6c5aa8]">Loading your first card…</p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center gap-10 px-4 py-12">
+    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center gap-10 rounded-3xl border border-[#ddccff] bg-gradient-to-br from-[#faf7ff] via-[#f4edff] to-[#efe4ff] px-6 py-12 shadow-[0_20px_60px_-38px_rgba(120,80,185,0.6)]">
       <div className="w-full space-y-3 text-center">
-        <p className="text-xs uppercase tracking-wide text-neutral-500">
+        <p className="text-xs uppercase tracking-wide text-[#7a68b6]">
           Playing deck
         </p>
-        <h1 className="text-2xl font-semibold text-neutral-900">{deckTitle}</h1>
+        <h1 className="text-2xl font-semibold text-[#362773]">{deckTitle}</h1>
         {progress && (
           <div className="space-y-2">
-            <Progress value={masteredPercent} className="h-2" />
-            <p className="text-sm text-neutral-500">
+            <Progress value={masteredPercent} />
+            <p className="text-sm text-[#6c5aa8]">
               Mastered {progress.masteredCount} of {progress.total} cards
             </p>
           </div>
@@ -183,10 +183,10 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
 
       {finished ? (
         <div className="flex flex-col items-center gap-4 text-center">
-          <p className="text-3xl font-semibold text-neutral-900">
+          <p className="text-3xl font-semibold text-[#362773]">
             🎉 All cards mastered!
           </p>
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-[#6c5aa8]">
             Great job! Let your teacher know you&apos;re ready for the next challenge.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
@@ -197,10 +197,10 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
         </div>
       ) : card ? (
         <>
-          <Card className="w-full max-w-2xl border-none bg-white p-0 shadow-xl">
+          <Card className="w-full max-w-2xl p-0 shadow-xl">
             <CardContent className="grid gap-6 p-8">
               {card.card.imageUrl && (
-                <div className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-2xl bg-neutral-100">
+                <div className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-2xl bg-[#f3ecff]">
                   <div className="flex h-full w-full items-center justify-center p-4">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -212,14 +212,14 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
                 </div>
               )}
               <div className="space-y-3 text-center">
-                <p className="text-xs uppercase tracking-wide text-neutral-500">
+                <p className="text-xs uppercase tracking-wide text-[#7a68b6]">
                   {showBack ? "Answer" : "Prompt"}
                 </p>
-                <p className="whitespace-pre-wrap text-2xl font-medium text-neutral-900">
+                <p className="whitespace-pre-wrap text-2xl font-medium text-[#2f1d59]">
                   {showBack ? card.card.back : card.card.front}
                 </p>
               </div>
-              <div className="flex items-center justify-center gap-3 text-xs text-neutral-400">
+              <div className="flex items-center justify-center gap-3 text-xs text-[#7a68b6]">
                 <span>Know: {card.stats.knowCount}</span>
                 <span>Refresher: {card.stats.refresherCount}</span>
               </div>
@@ -254,7 +254,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
         </>
       ) : (
         <div className="flex flex-col items-center gap-4 text-center">
-          <p className="text-lg text-neutral-600">
+          <p className="text-lg text-[#6c5aa8]">
             Waiting for cards… If this message persists, the run may have ended.
           </p>
           <Button onClick={() => loadNextCard()}>Try again</Button>

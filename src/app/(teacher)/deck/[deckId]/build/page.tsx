@@ -42,13 +42,13 @@ export default async function DeckBuildPage({ params }: BuildPageProps) {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-10">
+    <section className="mx-auto flex w-full max-w-6xl flex-col gap-8 rounded-3xl border border-[#ddccff] bg-gradient-to-br from-[#faf7ff] via-[#f6f0ff] to-[#f1e6ff] px-6 py-10 shadow-[0_20px_60px_-38px_rgba(120,80,185,0.65)]">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-3xl font-semibold text-neutral-900">
+          <h1 className="text-3xl font-semibold text-[#3b2978]">
             {deck.title}
           </h1>
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-[#6c5aa8]">
             Updated {formatDistanceToNow(deck.updatedAt, { addSuffix: true })}
           </p>
         </div>
