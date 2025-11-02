@@ -73,11 +73,46 @@ export async function GET(request: Request, context: RouteContext) {
     return jsonOk({ finished: true });
   }
 
-  const totalWeight = states.reduce((sum, state) => sum + state.weight, 0);
-  let roll = Math.random() * totalWeight;
-  let selected = states[0];
+  let candidateStates = states;
 
-  for (const state of states) {
+  if (states.length > 3) {
+    const recentResponses = await prisma.response.findMany({
+      where: { playerId },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: {
+        cardId: true,
+      },
+    });
+
+    const recentCardIds: string[] = [];
+    for (const response of recentResponses) {
+      if (!recentCardIds.includes(response.cardId)) {
+        recentCardIds.push(response.cardId);
+      }
+      if (recentCardIds.length === 3) {
+        break;
+      }
+    }
+
+    if (recentCardIds.length > 0) {
+      const filtered = states.filter(
+        (state) => !recentCardIds.includes(state.cardId),
+      );
+      if (filtered.length > 0) {
+        candidateStates = filtered;
+      }
+    }
+  }
+
+  const totalWeight = candidateStates.reduce(
+    (sum, state) => sum + state.weight,
+    0,
+  );
+  let roll = Math.random() * totalWeight;
+  let selected = candidateStates[0];
+
+  for (const state of candidateStates) {
     roll -= state.weight;
     if (roll <= 0) {
       selected = state;
