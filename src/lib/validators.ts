@@ -101,6 +101,14 @@ export const imageGenerateSchema = z.object({
     .optional()
     .transform((value) => value?.trim() || undefined),
   modelId: z.string().min(1).optional(),
+  promptOverride: z
+    .string()
+    .max(600)
+    .optional()
+    .transform((value) => {
+      const trimmed = value?.trim();
+      return trimmed && trimmed.length > 0 ? trimmed : undefined;
+    }),
 });
 
 export const registerSchema = z.object({

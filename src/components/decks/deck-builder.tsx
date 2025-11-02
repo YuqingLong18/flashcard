@@ -465,6 +465,7 @@ function EditCardDialog({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState("");
 
   const form = useForm<z.infer<typeof cardUpdateSchema>>({
     resolver: zodResolver(cardUpdateSchema),
@@ -523,10 +524,18 @@ function EditCardDialog({
       return;
     }
 
-    const requestBody = {
+    const requestBody: {
+      front: string;
+      back?: string;
+      promptOverride?: string;
+    } = {
       front,
       ...(backRaw ? { back: backRaw } : {}),
     };
+    const promptOverride = customPrompt.trim();
+    if (promptOverride) {
+      requestBody.promptOverride = promptOverride;
+    }
 
     setIsGenerating(true);
     const response = await fetch("/api/image/generate", {
@@ -636,6 +645,19 @@ function EditCardDialog({
                 </FormItem>
               )}
             />
+            <div className="space-y-2">
+              <FormLabel>Custom image prompt (optional)</FormLabel>
+              <Textarea
+                value={customPrompt}
+                onChange={(event) => setCustomPrompt(event.target.value)}
+                rows={3}
+                placeholder="Describe the scene you'd like the AI to create."
+                spellCheck={false}
+              />
+              <p className="text-xs text-neutral-500">
+                When provided, this prompt is sent to the image model instead of the automatic prompt.
+              </p>
+            </div>
             <FormField
               control={form.control}
               name="imageUrl"

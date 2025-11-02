@@ -17,8 +17,8 @@ export async function POST(request: Request) {
       return jsonError(parsed.error.message, 400);
     }
 
-    const { front, back, modelId } = parsed.data;
-    const prompt = buildImagePrompt(front, back);
+    const { front, back, modelId, promptOverride } = parsed.data;
+    const prompt = promptOverride ?? buildImagePrompt(front, back);
     const imageUrl = await generateImage({ prompt, modelId });
 
     return jsonOk({ imageUrl });
