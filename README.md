@@ -32,6 +32,10 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
    NEXTAUTH_SECRET="generated-long-secret"
    OPENROUTER_API_KEY="sk-..."               # required for AI image generation
    IMAGE_MODEL_ID="stability/sdxl"           # optional override of the default model
+   IMAGE_API_MODE="responses"                # set to "responses" for chat-style image models (e.g. Gemini)
+   IMAGE_SIZE="1024x1024"                    # optional override for generated image size
+   OPENROUTER_SITE_URL="http://localhost:3000" # required HTTP referer for OpenRouter
+   OPENROUTER_TITLE="Flashrooms"             # label sent to OpenRouter for analytics
    STORAGE_BUCKET="flashcards"               # target bucket name
    STORAGE_PUBLIC_BASE="https://cdn.example.com" # base URL for public assets
    STORAGE_REGION="us-east-1"                # region or "auto" for R2

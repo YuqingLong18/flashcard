@@ -1,6 +1,7 @@
 import { jsonError, jsonOk } from "@/lib/api";
 import { requireTeacher } from "@/lib/auth-guards";
 import { generateImage } from "@/lib/image-gen";
+import { buildImagePrompt } from "@/lib/prompts";
 import { imageGenerateSchema } from "@/lib/validators";
 
 export async function POST(request: Request) {
@@ -16,14 +17,17 @@ export async function POST(request: Request) {
       return jsonError(parsed.error.message, 400);
     }
 
-    const imageUrl = await generateImage({
-      prompt: parsed.data.prompt,
-      modelId: parsed.data.modelId,
-    });
+    const { front, back, modelId } = parsed.data;
+    const prompt = buildImagePrompt(front, back);
+    const imageUrl = await generateImage({ prompt, modelId });
 
     return jsonOk({ imageUrl });
   } catch (error) {
     console.error(error);
-    return jsonError("Failed to generate image.", 500);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Failed to generate image.";
+    return jsonError(message, 502);
   }
 }

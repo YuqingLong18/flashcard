@@ -13,5 +13,8 @@ export function buildImagePrompt(front: string, back?: string) {
   promptLines.push(
     "Style: Minimal, school safe, high contrast, flat illustration, pastel background.",
   );
+  promptLines.push(
+    "Instruction: Do not show any words from the card front or back; provide only an illustrative image that hints at the concept.",
+  );
   return promptLines.join(" ");
 }

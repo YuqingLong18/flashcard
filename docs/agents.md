@@ -209,7 +209,7 @@ All JSON responses: `{ ok: boolean, data?, error? }`.
 - `POST /api/decks/:deckId/publish` → toggle publish
 
 ### Image Generation / Upload
-- `POST /api/image/generate` → body `{ prompt, modelId? }` → returns `{ imageUrl }` (stores to S3/R2 and returns public URL)
+- `POST /api/image/generate` → body `{ front, back?, modelId? }` → returns `{ imageUrl }` (stores to S3/R2 and returns public URL)
 - `POST /api/upload` (signed URL init) → returns `{ uploadUrl, publicUrl }`
 
 ### Classroom Play
@@ -414,4 +414,3 @@ RUN_CODE_LENGTH=6
 - **Implement**: "Add `/api/image/generate` server action that calls OpenRouter with sanitized prompt and uploads result to storage; return `imageUrl`."
 - **Adaptive**: "Create Redis helper storing per‑(runId,playerId) weights; implement weighted sampling with masteries per section 4."
 - **UI**: "Build `/deck/[id]/build` two‑pane editor with inline rows and image preview; build `/join` and `/play/[runId]` as per section 6."
-

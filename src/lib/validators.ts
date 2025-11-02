@@ -89,7 +89,17 @@ export const uploadInitSchema = z.object({
 });
 
 export const imageGenerateSchema = z.object({
-  prompt: z.string().min(4).max(300),
+  front: z
+    .string()
+    .min(1)
+    .max(400)
+    .transform((value) => value.trim()),
+  back: z
+    .string()
+    .min(1)
+    .max(400)
+    .optional()
+    .transform((value) => value?.trim() || undefined),
   modelId: z.string().min(1).optional(),
 });
 

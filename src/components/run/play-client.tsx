@@ -200,13 +200,15 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
           <Card className="w-full max-w-2xl border-none bg-white p-0 shadow-xl">
             <CardContent className="grid gap-6 p-8">
               {card.card.imageUrl && (
-                <div className="relative mx-auto h-52 w-full max-w-sm overflow-hidden rounded-2xl bg-neutral-100">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={card.card.imageUrl}
-                    alt={card.card.front}
-                    className="h-full w-full object-cover"
-                  />
+                <div className="mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-2xl bg-neutral-100">
+                  <div className="flex h-full w-full items-center justify-center p-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={card.card.imageUrl}
+                      alt={card.card.front}
+                      className="h-full w-full object-contain"
+                    />
+                  </div>
                 </div>
               )}
               <div className="space-y-3 text-center">

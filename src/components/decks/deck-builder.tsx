@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -30,7 +29,6 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { buildImagePrompt } from "@/lib/prompts";
 import {
   cardCreateSchema,
   cardUpdateSchema,
@@ -325,7 +323,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
       <DialogTrigger asChild>
         <Button variant="outline">Add card</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New card</DialogTitle>
           <DialogDescription>
@@ -367,7 +365,12 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
                 <FormItem>
                   <FormLabel>Image URL (optional)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="https://" />
+                    <Input
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={(event) => field.onChange(event.target.value || undefined)}
+                      placeholder="https://"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -427,12 +430,12 @@ function CardTable({
               </TableCell>
               <TableCell>
                 {card.imageUrl ? (
-                  <div className="relative h-16 w-24 overflow-hidden rounded-lg border">
-                    <Image
+                  <div className="flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg border bg-neutral-100">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={card.imageUrl}
                       alt={card.front}
-                      fill
-                      className="object-cover"
+                      className="max-h-full max-w-full object-contain"
                     />
                   </div>
                 ) : (
@@ -468,7 +471,7 @@ function EditCardDialog({
     defaultValues: {
       front: card.front,
       back: card.back,
-      imageUrl: card.imageUrl ?? undefined,
+      imageUrl: card.imageUrl ?? null,
     },
   });
 
@@ -512,23 +515,35 @@ function EditCardDialog({
 
   const generateImage = async () => {
     const current = form.getValues();
-    const prompt = buildImagePrompt(current.front ?? card.front, current.back ?? card.back);
+    const front = (current.front ?? card.front).trim();
+    const backRaw = (current.back ?? card.back)?.trim() ?? "";
+
+    if (!front) {
+      toast.error("Front text is required to generate an image.");
+      return;
+    }
+
+    const requestBody = {
+      front,
+      ...(backRaw ? { back: backRaw } : {}),
+    };
+
     setIsGenerating(true);
     const response = await fetch("/api/image/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify(requestBody),
     });
     setIsGenerating(false);
 
     if (!response.ok) {
-      const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Image generation failed.");
+      const errorBody = await response.json().catch(() => null);
+      toast.error(errorBody?.error ?? "Image generation failed.");
       return;
     }
 
-    const payload = await response.json();
-    const imageUrl = payload.data?.imageUrl ?? payload.imageUrl;
+    const responseBody = await response.json();
+    const imageUrl = responseBody.data?.imageUrl ?? responseBody.imageUrl;
     if (!imageUrl) {
       toast.error("Image generation failed.");
       return;
@@ -586,7 +601,7 @@ function EditCardDialog({
           Edit
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit card</DialogTitle>
           <DialogDescription>
@@ -624,62 +639,71 @@ function EditCardDialog({
             <FormField
               control={form.control}
               name="imageUrl"
-              render={({ field }) => (
-                <FormItem className="space-y-3">
-                  <FormLabel>Image</FormLabel>
-                  {field.value ? (
-                    <div className="relative h-40 w-full overflow-hidden rounded-xl border">
-                      <Image
-                        src={field.value}
-                        alt={form.getValues("front") ?? card.front}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-100 py-6 text-center text-sm text-neutral-500">
-                      No image attached.
-                    </div>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={generateImage}
-                      disabled={isGenerating}
-                    >
-                      {isGenerating ? "Generating…" : "Generate"}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isUploading}
-                      asChild
-                    >
-                      <label className="cursor-pointer">
-                        {isUploading ? "Uploading…" : "Upload"}
-                        <input type="file" accept="image/*" className="hidden" onChange={uploadImage} />
-                      </label>
-                    </Button>
-                    {field.value && (
+              render={({ field }) => {
+                const previewUrl =
+                  typeof field.value === "string" && field.value.length > 0 ? field.value : null;
+                return (
+                  <FormItem className="space-y-3">
+                    <FormLabel>Image</FormLabel>
+                    {previewUrl ? (
+                      <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border bg-neutral-100 p-4">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={previewUrl}
+                          alt={form.getValues("front") ?? card.front}
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-100 py-6 text-center text-sm text-neutral-500">
+                        No image attached.
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => field.onChange(null)}
+                        onClick={generateImage}
+                        disabled={isGenerating}
                       >
-                        Remove
+                        {isGenerating ? "Generating…" : "Generate"}
                       </Button>
-                    )}
-                  </div>
-                  <FormControl>
-                    <Input {...field} placeholder="https://" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isUploading}
+                        asChild
+                      >
+                        <label className="cursor-pointer">
+                          {isUploading ? "Uploading…" : "Upload"}
+                          <input type="file" accept="image/*" className="hidden" onChange={uploadImage} />
+                        </label>
+                      </Button>
+                      {previewUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => field.onChange(null)}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        value={field.value ?? ""}
+                        onChange={(event) => field.onChange(event.target.value || null)}
+                        placeholder="https://"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
             <DialogFooter className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
               <Button
