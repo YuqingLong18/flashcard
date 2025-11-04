@@ -37,26 +37,29 @@ const schema = deckCreateSchema.extend({
     .transform((value) => value.trim()),
 });
 
+type FormInput = z.input<typeof schema>;
+
 export function CreateDeckDialog() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<z.infer<typeof schema>>({
+  const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: {
       title: "",
-      description: "",
-      language: "",
+      description: undefined,
+      language: undefined,
     },
   });
 
-  const onSubmit = async (values: z.infer<typeof schema>) => {
+  const onSubmit = async (values: FormInput) => {
     setIsSubmitting(true);
+    const parsed = schema.parse(values);
     const response = await fetch("/api/decks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify(parsed),
     });
 
     setIsSubmitting(false);
@@ -112,6 +115,7 @@ export function CreateDeckDialog() {
                   <FormControl>
                     <Textarea
                       {...field}
+                      value={field.value ?? ""}
                       placeholder="Supports Grade 9 biology lesson 4."
                       rows={3}
                     />
@@ -127,7 +131,12 @@ export function CreateDeckDialog() {
                 <FormItem>
                   <FormLabel>Language (optional)</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="en" maxLength={10} />
+                    <Input
+                      {...field}
+                      value={field.value ?? ""}
+                      placeholder="en"
+                      maxLength={10}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

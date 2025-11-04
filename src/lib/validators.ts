@@ -110,14 +110,3 @@ export const imageGenerateSchema = z.object({
       return trimmed && trimmed.length > 0 ? trimmed : undefined;
     }),
 });
-
-export const registerSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8).max(128),
-  name: z
-    .string()
-    .min(1)
-    .max(80)
-    .optional()
-    .transform((value) => value?.trim() || undefined),
-});

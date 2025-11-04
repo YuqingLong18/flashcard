@@ -28,8 +28,8 @@ export default async function Home() {
               size="lg"
               className="bg-neutral-900 text-white hover:bg-neutral-800"
             >
-              <Link href={session?.user ? "/dashboard" : "/register"}>
-                {session?.user ? "Go to dashboard" : "Get started as a teacher"}
+              <Link href={session?.user ? "/dashboard" : "/login"}>
+                {session?.user ? "Go to dashboard" : "Sign in to manage decks"}
               </Link>
             </Button>
             <Button asChild variant="outline" size="lg">

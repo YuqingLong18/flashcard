@@ -1,9 +1,35 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import {
+  PutObjectCommand,
+  S3Client,
+  type ObjectCannedACL,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "node:crypto";
 
 const bucket = process.env.STORAGE_BUCKET;
 const publicBase = process.env.STORAGE_PUBLIC_BASE;
+const rawObjectAcl = process.env.STORAGE_OBJECT_ACL?.trim();
+
+const allowedAcls: Set<ObjectCannedACL> = new Set([
+  "private",
+  "public-read",
+  "public-read-write",
+  "authenticated-read",
+  "aws-exec-read",
+  "bucket-owner-read",
+  "bucket-owner-full-control",
+]);
+
+const objectAcl =
+  rawObjectAcl && allowedAcls.has(rawObjectAcl as ObjectCannedACL)
+    ? (rawObjectAcl as ObjectCannedACL)
+    : undefined;
+
+if (rawObjectAcl && !objectAcl) {
+  console.warn(
+    `STORAGE_OBJECT_ACL "${rawObjectAcl}" is not a recognised canned ACL; ignoring value.`,
+  );
+}
 
 if (!bucket) {
   console.warn("STORAGE_BUCKET is not configured. Upload endpoints will fail.");
@@ -52,7 +78,7 @@ export async function createUploadUrl({
     Bucket: bucket,
     Key: key,
     ContentType: contentType,
-    ACL: "public-read",
+    ...(objectAcl ? { ACL: objectAcl } : {}),
   });
 
   const uploadUrl = await getSignedUrl(s3, command, { expiresIn });
@@ -81,7 +107,7 @@ export async function uploadBuffer({
       Key: key,
       Body: buffer,
       ContentType: contentType,
-      ACL: "public-read",
+      ...(objectAcl ? { ACL: objectAcl } : {}),
     }),
   );
 

@@ -43,6 +43,7 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
    STORAGE_ACCESS_KEY="..."                  # omit if using IAM role
    STORAGE_SECRET_KEY="..."                  # omit if using IAM role
    STORAGE_FORCE_PATH_STYLE="true"           # set for MinIO or localstack
+   STORAGE_OBJECT_ACL="public-read"          # optional per-object ACL, omit if bucket ACL already public
    RUN_CODE_TTL_MINUTES="120"
    RUN_CODE_LENGTH="6"
    ```
@@ -59,7 +60,7 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
    ```
    App is served at `http://localhost:3000`.
 
-5. **Create a teacher account** via `/register`, build a deck, publish it, and launch “Play deck” to obtain a join code for students.
+5. **Provision a teacher account** with `npm run create-user -- --email teacher@example.com --password "securePass123" [--name "Teacher"]`, then sign in at `/login`, build a deck, publish it, and launch “Play deck” to obtain a join code for students.
 
 ## Testing & Verification
 
@@ -80,6 +81,7 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
 - Configure `STORAGE_PUBLIC_BASE` and Next.js `images.remotePatterns` to match your CDN or storage domain if different from wildcard defaults.
 - Schedule clean-up of expired deck runs if desired (e.g., nightly cron to mark `EXPIRED`).
 - Add HTTPS, secret rotation, and monitoring before production launch.
+- Disable public registration in production by keeping accounts admin-managed via the `npm run create-user` script.
 
 ## Roadmap / Nice-to-haves
 

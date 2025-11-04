@@ -1,0 +1,22 @@
+[Unit]
+Description=MinIO Object Storage
+After=network.target
+Wants=network-online.target
+
+[Service]
+User=minio
+Group=minio
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+LimitNOFILE=65536
+Environment="MINIO_ROOT_USER=ylong"
+Environment="MINIO_ROOT_PASSWORD=xm8wreWmBr!"
+ExecStart=/usr/local/bin/minio server /srv/minio/data \
+--address ":9000" \
+--console-address ":9001"
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -36,6 +36,10 @@ import {
 } from "@/lib/validators";
 import type { DeckWithCards } from "@/types/deck";
 
+type DeckUpdateFormInput = z.input<typeof deckUpdateSchema>;
+type CardCreateFormInput = z.input<typeof cardCreateSchema>;
+type CardUpdateFormInput = z.input<typeof cardUpdateSchema>;
+
 interface DeckBuilderProps {
   deck: DeckWithCards;
 }
@@ -81,7 +85,7 @@ function DeckMetadataForm({
   onSaved: () => void;
 }) {
   const router = useRouter();
-  const form = useForm<z.infer<typeof deckUpdateSchema>>({
+  const form = useForm<DeckUpdateFormInput>({
     resolver: zodResolver(deckUpdateSchema),
     defaultValues: {
       title: deck.title,
@@ -92,7 +96,7 @@ function DeckMetadataForm({
   const [isSaving, setIsSaving] = useState(false);
   const [publishLoading, setPublishLoading] = useState(false);
 
-  const onSubmit = async (values: z.infer<typeof deckUpdateSchema>) => {
+  const onSubmit = async (values: DeckUpdateFormInput) => {
     const payload: Record<string, string> = {};
     if (values.title) {
       payload.title = values.title.trim();
@@ -181,7 +185,7 @@ function DeckMetadataForm({
               <FormItem>
                 <FormLabel>Description</FormLabel>
                 <FormControl>
-                  <Textarea {...field} rows={3} />
+                  <Textarea {...field} rows={3} value={field.value ?? ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -194,7 +198,7 @@ function DeckMetadataForm({
               <FormItem>
                 <FormLabel>Language</FormLabel>
                 <FormControl>
-                  <Input {...field} placeholder="en" />
+                  <Input {...field} placeholder="en" value={field.value ?? ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -276,19 +280,20 @@ function parseCsvRows(input: string) {
       if (!front || !back) {
         return null;
       }
+      const normalizedImageUrl = imageUrl && imageUrl.length > 0 ? imageUrl : undefined;
       return {
         front,
         back,
-        imageUrl: imageUrl || undefined,
+        ...(normalizedImageUrl ? { imageUrl: normalizedImageUrl } : {}),
       };
     })
-    .filter((row): row is { front: string; back: string; imageUrl?: string } => Boolean(row));
+    .filter((row): row is { front: string; back: string; imageUrl?: string } => row !== null);
 }
 
 function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () => void }) {
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const form = useForm<z.infer<typeof cardCreateSchema>>({
+  const form = useForm<CardCreateFormInput>({
     resolver: zodResolver(cardCreateSchema),
     defaultValues: {
       front: "",
@@ -297,12 +302,13 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
     },
   });
 
-  const submit = async (values: z.infer<typeof cardCreateSchema>) => {
+  const submit = async (values: CardCreateFormInput) => {
     setIsSaving(true);
+    const parsed = cardCreateSchema.parse(values);
     const response = await fetch(`/api/decks/${deckId}/cards`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify(parsed),
     });
     setIsSaving(false);
 
@@ -339,7 +345,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
                 <FormItem>
                   <FormLabel>Front</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={3} />
+                    <Textarea {...field} rows={3} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -352,7 +358,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
                 <FormItem>
                   <FormLabel>Back</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={4} />
+                    <Textarea {...field} rows={4} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -467,7 +473,7 @@ function EditCardDialog({
   const [isUploading, setIsUploading] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
 
-  const form = useForm<z.infer<typeof cardUpdateSchema>>({
+  const form = useForm<CardUpdateFormInput>({
     resolver: zodResolver(cardUpdateSchema),
     defaultValues: {
       front: card.front,
@@ -476,12 +482,13 @@ function EditCardDialog({
     },
   });
 
-  const submit = async (values: z.infer<typeof cardUpdateSchema>) => {
+  const submit = async (values: CardUpdateFormInput) => {
     setIsSaving(true);
+    const parsed = cardUpdateSchema.parse(values);
     const response = await fetch(`/api/cards/${card.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify(parsed),
     });
     setIsSaving(false);
 
@@ -626,7 +633,7 @@ function EditCardDialog({
                 <FormItem>
                   <FormLabel>Front</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={3} />
+                    <Textarea {...field} rows={3} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -639,7 +646,7 @@ function EditCardDialog({
                 <FormItem>
                   <FormLabel>Back</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={4} />
+                    <Textarea {...field} rows={4} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

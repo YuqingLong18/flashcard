@@ -23,11 +23,11 @@ const schema = runJoinSchema.extend({
   code: runJoinSchema.shape.code.transform((value) => value.toUpperCase()),
 });
 
-type FormSchema = z.infer<typeof schema>;
+type FormInput = z.input<typeof schema>;
 
 export function JoinForm() {
   const router = useRouter();
-  const form = useForm<FormSchema>({
+  const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: {
       code: "",
@@ -37,12 +37,13 @@ export function JoinForm() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const onSubmit = async (values: FormSchema) => {
+  const onSubmit = async (values: FormInput) => {
     setIsSubmitting(true);
+    const parsed = schema.parse(values);
     const response = await fetch("/api/run/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify(parsed),
     });
 
     setIsSubmitting(false);

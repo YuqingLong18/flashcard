@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/auth/login-form";
@@ -27,13 +26,7 @@ export default async function LoginPage() {
           <CardContent>
             <LoginForm />
             <p className="mt-6 text-sm text-neutral-500">
-              Need an account?{" "}
-              <Link
-                href="/register"
-                className="font-medium text-neutral-900 underline"
-              >
-                Create one
-              </Link>
+              Account access is managed by your program administrator.
             </p>
           </CardContent>
         </Card>
