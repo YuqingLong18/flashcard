@@ -9,13 +9,13 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
 - **Live runs**: short-lived join codes, player state snapshots, adaptive scheduling, and progress tracking
 - **Student experience**: keyboard-first play surface with mastery tracking and celebratory finish state
 - **Analytics**: per-card mastery ratios, attempts to mastery, and refresher heatmaps
-- **Authentication**: email/password via NextAuth + Prisma adapter with PostgreSQL persistence
+- **Authentication**: username/password via NextAuth using centralized credential database
 
 ## Tech Stack
 
 - Next.js 16 (App Router), TypeScript, React Hook Form, TailwindCSS (v4), shadcn/ui
 - Prisma ORM + PostgreSQL
-- NextAuth (credentials) using bcrypt hashes
+- NextAuth (credentials) using centralized credential database API
 - AWS S3 compatible storage via AWS SDK v3
 - OpenRouter image generation endpoint
 
@@ -30,6 +30,7 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
    ```env
    DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/flashrooms"
    NEXTAUTH_SECRET="generated-long-secret"
+   CREDENTIAL_DB_URL="http://localhost:3000"  # URL to credential database API
    OPENROUTER_API_KEY="sk-..."               # required for AI image generation
    IMAGE_MODEL_ID="stability/sdxl"           # optional override of the default model
    IMAGE_API_MODE="responses"                # set to "responses" for chat-style image models (e.g. Gemini)
@@ -60,7 +61,7 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
    ```
    App is served at `http://localhost:3000`.
 
-5. **Provision a teacher account** with `npm run create-user -- --email teacher@example.com --password "securePass123" [--name "Teacher"]`, then sign in at `/login`, build a deck, publish it, and launch “Play deck” to obtain a join code for students.
+5. **Ensure credential database is running** at the URL specified in `CREDENTIAL_DB_URL` (default: `http://localhost:3000`). Users should be added to the credential database using the tools in the `/index` project. Then sign in at `/login` with your username and password, build a deck, publish it, and launch "Play deck" to obtain a join code for students.
 
 ## Testing & Verification
 

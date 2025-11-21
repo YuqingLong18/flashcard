@@ -20,8 +20,8 @@ import {
 import { Input } from "@/components/ui/input";
 
 const schema = z.object({
-  email: z.string().email("Enter a valid email."),
-  password: z.string().min(8, "Password must be at least 8 characters."),
+  username: z.string().min(1, "Username is required."),
+  password: z.string().min(1, "Password is required."),
 });
 
 type FormSchema = z.infer<typeof schema>;
@@ -31,7 +31,7 @@ export function LoginForm() {
   const form = useForm<FormSchema>({
     resolver: zodResolver(schema),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
   });
@@ -42,7 +42,7 @@ export function LoginForm() {
     setIsLoading(true);
     const result = await signIn("credentials", {
       redirect: false,
-      email: values.email,
+      username: values.username,
       password: values.password,
     });
 
@@ -66,16 +66,16 @@ export function LoginForm() {
       >
         <FormField
           control={form.control}
-          name="email"
+          name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Username</FormLabel>
               <FormControl>
                 <Input
                   {...field}
-                  type="email"
-                  placeholder="teacher@example.com"
-                  autoComplete="email"
+                  type="text"
+                  placeholder="Enter your username"
+                  autoComplete="username"
                 />
               </FormControl>
               <FormMessage />

@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -39,6 +39,26 @@ import type { DeckWithCards } from "@/types/deck";
 type DeckUpdateFormInput = z.input<typeof deckUpdateSchema>;
 type CardCreateFormInput = z.input<typeof cardCreateSchema>;
 type CardUpdateFormInput = z.input<typeof cardUpdateSchema>;
+const aiSuggestionFormSchema = z.object({
+  description: z
+    .string()
+    .trim()
+    .min(10, "Please describe the deck (10+ characters).")
+    .max(600, "Keep descriptions under 600 characters."),
+  count: z
+    .string()
+    .trim()
+    .min(1, "Card count is required.")
+    .refine((value) => /^\d+$/.test(value), {
+      message: "Enter a whole number.",
+    })
+    .transform((value) => Number(value))
+    .refine((value) => value >= 1 && value <= 20, {
+      message: "You can request between 1 and 20 cards.",
+    }),
+});
+type AiSuggestionFormInput = z.input<typeof aiSuggestionFormSchema>;
+type AiSuggestionFormValues = z.infer<typeof aiSuggestionFormSchema>;
 
 interface DeckBuilderProps {
   deck: DeckWithCards;
@@ -47,6 +67,128 @@ interface DeckBuilderProps {
 export function DeckBuilder({ deck }: DeckBuilderProps) {
   const router = useRouter();
   const [isPublished, setIsPublished] = useState(deck.isPublished);
+  const [bulkImageState, setBulkImageState] = useState<{
+    running: boolean;
+    total: number;
+    completed: number;
+    currentFront: string;
+  }>({
+    running: false,
+    total: 0,
+    completed: 0,
+    currentFront: "",
+  });
+
+  const missingImageCount = useMemo(
+    () => deck.cards.filter((card) => !card.imageUrl).length,
+    [deck.cards],
+  );
+
+  const handleGenerateMissingImages = async () => {
+    const cardsWithoutImages = deck.cards.filter((card) => !card.imageUrl);
+    if (cardsWithoutImages.length === 0) {
+      toast.info("All cards already have images.");
+      return;
+    }
+
+    setBulkImageState({
+      running: true,
+      total: cardsWithoutImages.length,
+      completed: 0,
+      currentFront: "",
+    });
+
+    const summarize = (input: string) =>
+      input.replace(/\s+/g, " ").trim().slice(0, 80) || "Card";
+
+    let generatedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+
+    for (const [index, card] of cardsWithoutImages.entries()) {
+      setBulkImageState((prev) => ({
+        ...prev,
+        currentFront: card.front,
+      }));
+
+      try {
+        const response = await fetch(`/api/cards/${card.id}/generate-image`, {
+          method: "POST",
+        });
+        let payload: unknown = null;
+        try {
+          payload = await response.json();
+        } catch {
+          payload = null;
+        }
+        const data =
+          payload && typeof payload === "object" && "data" in payload
+            ? (payload as { data: unknown }).data
+            : payload;
+
+        if (!response.ok) {
+          failedCount += 1;
+          const errorMessage =
+            (payload as { error?: string } | null)?.error ??
+            "Image generation failed.";
+          toast.error(`Image failed for “${summarize(card.front)}”`, {
+            description: errorMessage,
+          });
+        } else if (data && typeof data === "object" && "skipped" in data) {
+          const skipped = Boolean((data as { skipped?: boolean }).skipped);
+          if (skipped) {
+            skippedCount += 1;
+          } else {
+            generatedCount += 1;
+          }
+        } else {
+          generatedCount += 1;
+        }
+      } catch (error) {
+        failedCount += 1;
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : "Image generation failed.";
+        toast.error(`Image failed for “${summarize(card.front)}”`, {
+          description: message,
+        });
+      }
+
+      setBulkImageState((prev) => ({
+        ...prev,
+        completed: index + 1,
+      }));
+    }
+
+    setBulkImageState({
+      running: false,
+      total: 0,
+      completed: 0,
+      currentFront: "",
+    });
+
+    router.refresh();
+
+    if (generatedCount > 0) {
+      const summary: string[] = [`${generatedCount} generated`];
+      if (skippedCount > 0) {
+        summary.push(`${skippedCount} skipped`);
+      }
+      if (failedCount > 0) {
+        summary.push(`${failedCount} failed`);
+      }
+      toast.success(`Image generation finished (${summary.join(", ")}).`);
+    } else if (skippedCount > 0 && failedCount === 0) {
+      toast.info("All cards already had images.");
+    } else if (failedCount > 0) {
+      toast.error(
+        failedCount === cardsWithoutImages.length
+          ? "Image generation failed for all cards."
+          : "Image generation completed with some failures.",
+      );
+    }
+  };
 
   return (
     <div className="grid gap-8 lg:grid-cols-[320px_1fr]">
@@ -65,8 +207,36 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
       <section className="space-y-4 rounded-2xl border border-[#dccaFF] bg-[#fbf8ff] p-5 shadow-[0_10px_35px_-30px_rgba(120,80,185,0.55)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold text-[#3f2b7f]">Cards</h2>
-          <AddCardDialog deckId={deck.id} onComplete={() => router.refresh()} />
+          <div className="flex flex-wrap items-center gap-2">
+            <AiSuggestionDialog
+              deckId={deck.id}
+              deckTitle={deck.title}
+              deckDescription={deck.description ?? null}
+              deckLanguage={deck.language ?? null}
+              onComplete={() => router.refresh()}
+            />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateMissingImages}
+              disabled={bulkImageState.running}
+            >
+              {bulkImageState.running
+                ? `Generating… (${bulkImageState.completed}/${bulkImageState.total})`
+                : missingImageCount > 0
+                  ? `Generate images (${missingImageCount})`
+                  : "Generate images"}
+            </Button>
+            <AddCardDialog deckId={deck.id} onComplete={() => router.refresh()} />
+          </div>
         </div>
+        {bulkImageState.running &&
+          bulkImageState.currentFront.replace(/\s+/g, " ").trim().length > 0 && (
+            <p className="text-xs text-[#7a68b6]">
+              Working on “
+              {bulkImageState.currentFront.replace(/\s+/g, " ").trim().slice(0, 80)}”
+            </p>
+          )}
         <CardTable cards={deck.cards} onChanged={() => router.refresh()} />
       </section>
     </div>
@@ -288,6 +458,167 @@ function parseCsvRows(input: string) {
       };
     })
     .filter((row): row is { front: string; back: string; imageUrl?: string } => row !== null);
+}
+
+function AiSuggestionDialog({
+  deckId,
+  deckTitle,
+  deckDescription,
+  deckLanguage,
+  onComplete,
+}: {
+  deckId: string;
+  deckTitle: string;
+  deckDescription: string | null;
+  deckLanguage: string | null;
+  onComplete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const defaultDescription = (deckDescription ?? "").trim();
+  const normalizedLanguage = (deckLanguage ?? "").trim();
+  const form = useForm<AiSuggestionFormInput>({
+    resolver: zodResolver(aiSuggestionFormSchema),
+    defaultValues: {
+      description: defaultDescription,
+      count: "5",
+    },
+  });
+
+  useEffect(() => {
+    if (!open) {
+      form.reset({
+        description: defaultDescription,
+        count: "5",
+      });
+    }
+  }, [defaultDescription, form, open]);
+
+  const submit = async (values: AiSuggestionFormInput) => {
+    const parsed: AiSuggestionFormValues = aiSuggestionFormSchema.parse(values);
+    setIsSubmitting(true);
+    const response = await fetch(`/api/decks/${deckId}/cards/suggest`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        description: parsed.description,
+        count: parsed.count,
+      }),
+    });
+    setIsSubmitting(false);
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      const errorMessage =
+        (payload as { error?: string } | null)?.error ??
+        "AI suggestions failed.";
+      toast.error(errorMessage);
+      return;
+    }
+
+    const payload = await response.json().catch(() => null);
+    const data =
+      payload && typeof payload === "object" && "data" in payload
+        ? (payload as { data: unknown }).data
+        : payload;
+
+    let createdCount = 0;
+    if (
+      data &&
+      typeof data === "object" &&
+      Array.isArray((data as { cards?: unknown[] }).cards)
+    ) {
+      createdCount = (data as { cards: unknown[] }).cards.length;
+    } else if (
+      data &&
+      typeof data === "object" &&
+      typeof (data as { created?: number }).created === "number"
+    ) {
+      createdCount = (data as { created: number }).created;
+    }
+
+    if (createdCount === 0) {
+      toast.info(
+        "The AI response did not add any cards. Try refining your description.",
+      );
+    } else {
+      toast.success(
+        `Added ${createdCount} AI-generated card${createdCount === 1 ? "" : "s"}.`,
+      );
+    }
+
+    setOpen(false);
+    onComplete();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm">AI suggestion</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>AI suggestions</DialogTitle>
+          <DialogDescription>
+            Describe the cards you need and we&apos;ll draft them for you.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-1 rounded-lg border border-[#eadfff] bg-[#f8f3ff] p-3 text-xs text-[#6d53ad]">
+          <p className="font-medium text-[#3e2f7c]">{deckTitle}</p>
+          {defaultDescription && <p className="leading-snug">{defaultDescription}</p>}
+          {normalizedLanguage && <p>Language: {normalizedLanguage}</p>}
+        </div>
+        <Form {...form}>
+          <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>What do you need?</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={(event) => field.onChange(event.target.value)}
+                      rows={4}
+                      placeholder="Introduce the topic, goals, level, or standards you want these cards to cover."
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="count"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Number of cards</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={field.value ?? ""}
+                      onChange={(event) => field.onChange(event.target.value)}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? "Generating…" : "Add cards"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () => void }) {

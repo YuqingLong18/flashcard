@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Node.js
+node_modules
+.npm-cache
+npm-debug.log
+
 # vercel
 .vercel
 

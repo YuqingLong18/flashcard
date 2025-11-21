@@ -110,3 +110,8 @@ export const imageGenerateSchema = z.object({
       return trimmed && trimmed.length > 0 ? trimmed : undefined;
     }),
 });
+
+export const cardSuggestionRequestSchema = z.object({
+  description: z.string().trim().min(10).max(600),
+  count: z.coerce.number().int().min(1).max(20),
+});

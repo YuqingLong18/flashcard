@@ -1,49 +1,70 @@
-import { PrismaAdapter } from "@auth/prisma-adapter";
-import { compare } from "bcrypt";
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import type { Adapter } from "next-auth/adapters";
 import type { Role } from "@prisma/client";
 
-import { prisma } from "@/lib/prisma";
+const CREDENTIAL_DB_URL = process.env.CREDENTIAL_DB_URL || "http://localhost:3000";
+
+async function verifyCredentials(username: string, password: string) {
+  try {
+    const response = await fetch(`${CREDENTIAL_DB_URL}/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ username, password }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    if (data.success && data.user) {
+      return {
+        id: String(data.user.id),
+        username: data.user.username,
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error verifying credentials:", error);
+    return null;
+  }
+}
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma) as Adapter,
   session: {
     strategy: "jwt",
   },
   providers: [
     Credentials({
-      name: "Email and Password",
+      name: "Username and Password",
       credentials: {
-        email: { label: "Email", type: "email" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
+        if (!credentials?.username || !credentials?.password) {
           return null;
         }
 
-        const email = credentials.email.toLowerCase().trim();
-        const user = await prisma.user.findUnique({
-          where: { email },
-        });
+        const username = credentials.username.trim();
+        const userInfo = await verifyCredentials(username, credentials.password);
 
-        if (!user?.password) {
+        if (!userInfo) {
           return null;
         }
 
-        const isValid = await compare(credentials.password, user.password);
-        if (!isValid) {
-          return null;
-        }
-
+        // Default role to TEACHER for compatibility with existing code
+        // You can customize this logic if needed
         return {
-          id: user.id,
-          email: user.email,
-          role: user.role,
-          name: user.name,
+          id: userInfo.id,
+          username: userInfo.username,
+          email: `${userInfo.username}@local`, // Placeholder email for compatibility
+          role: "TEACHER" as Role,
+          name: userInfo.username,
         };
       },
     }),
