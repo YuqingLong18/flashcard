@@ -23,7 +23,11 @@ export const deckUpdateSchema = deckCreateSchema.partial().refine(
 );
 
 export const cardCreateSchema = z.object({
-  front: z.string().min(1).max(400).transform((value) => value.trim()),
+  front: z
+    .string()
+    .max(400)
+    .optional()
+    .transform((value) => value?.trim() || undefined),
   back: z.string().min(1).max(400).transform((value) => value.trim()),
   imageUrl: z
     .string()

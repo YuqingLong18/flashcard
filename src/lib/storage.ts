@@ -80,7 +80,7 @@ function getMinIOPublicUrl(key: string): string {
 export function getPublicUrl(key: string) {
   // If publicBase is configured, use it (assumes it's a CDN/proxy that serves from MinIO)
   if (publicBase) {
-    return `${publicBase.replace(/\/$/, "")}/${key}`;
+  return `${publicBase.replace(/\/$/, "")}/${key}`;
   }
   
   // Fallback: construct URL directly from MinIO endpoint
@@ -241,15 +241,15 @@ export async function uploadBuffer({
   await ensureBucketExists();
 
   try {
-    await s3.send(
-      new PutObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Body: buffer,
-        ContentType: contentType,
-        ...(objectAcl ? { ACL: objectAcl } : {}),
-      }),
-    );
+  await s3.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+      ...(objectAcl ? { ACL: objectAcl } : {}),
+    }),
+  );
   } catch (error) {
     const errorCode = (error as { Code?: string; message?: string })?.Code;
     if (errorCode === "NoSuchBucket") {

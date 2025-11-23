@@ -621,6 +621,11 @@ function AiSuggestionDialog({
 function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () => void }) {
   const [open, setOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGeneratingFront, setIsGeneratingFront] = useState(false);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [dragActive, setDragActive] = useState(false);
+  
   const form = useForm<CardCreateFormInput>({
     resolver: zodResolver(cardCreateSchema),
     defaultValues: {
@@ -630,27 +635,210 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
     },
   });
 
-  const submit = async (values: CardCreateFormInput) => {
-    setIsSaving(true);
-    const parsed = cardCreateSchema.parse(values);
-    const response = await fetch(`/api/decks/${deckId}/cards`, {
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type.startsWith("image/")) {
+        setUploadedFile(file);
+      } else {
+        toast.error("Please upload an image file.");
+      }
+    }
+  };
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.type.startsWith("image/")) {
+        setUploadedFile(file);
+      } else {
+        toast.error("Please upload an image file.");
+      }
+    }
+  };
+
+  const uploadFile = async (file: File): Promise<string> => {
+    // Get upload URL
+    const uploadResponse = await fetch("/api/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(parsed),
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type,
+        size: file.size,
+      }),
     });
-    setIsSaving(false);
+
+    if (!uploadResponse.ok) {
+      throw new Error("Failed to get upload URL");
+    }
+
+    const { uploadUrl, publicUrl } = await uploadResponse.json();
+
+    // Upload file
+    const uploadResult = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": file.type,
+      },
+      body: file,
+    });
+
+    if (!uploadResult.ok) {
+      throw new Error("Failed to upload file");
+    }
+
+    return publicUrl;
+  };
+
+  const generateImage = async (front: string, back: string): Promise<string> => {
+    const response = await fetch("/api/image/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ front, back }),
+    });
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Unable to add card.");
-      return;
+      throw new Error(payload?.error ?? "Failed to generate image");
     }
 
-    toast.success("Card added.");
-    form.reset({ front: "", back: "", imageUrl: undefined });
-    setOpen(false);
-    onComplete();
+    const { imageUrl } = await response.json();
+    return imageUrl;
   };
+
+  const submit = async (values: CardCreateFormInput) => {
+    setIsSaving(true);
+    let front = values.front?.trim();
+    const back = values.back.trim();
+    let imageUrl: string | undefined = undefined;
+
+    try {
+      // Step 1: Generate front from back if not provided
+      if (!front || front.length === 0) {
+        setIsGeneratingFront(true);
+        try {
+          const response = await fetch("/api/cards/generate-front", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ back }),
+          });
+
+          if (!response.ok) {
+            const payload = await response.json().catch(() => null);
+            throw new Error(payload?.error ?? "Failed to generate front");
+          }
+
+          const { front: generatedFront } = await response.json();
+          if (!generatedFront || generatedFront.trim().length === 0) {
+            throw new Error("Generated front is empty");
+          }
+          front = generatedFront.trim();
+          form.setValue("front", front);
+        } catch (error) {
+          toast.error(
+            error instanceof Error
+              ? `Failed to generate front: ${error.message}`
+              : "Failed to generate front description.",
+          );
+          setIsSaving(false);
+          setIsGeneratingFront(false);
+          return;
+        }
+        setIsGeneratingFront(false);
+      }
+
+      // Ensure front is set (should be guaranteed by now, but double-check)
+      if (!front || front.trim().length === 0) {
+        toast.error("Front is required. Please provide a front or ensure it was generated.");
+        setIsSaving(false);
+        return;
+      }
+
+      // Step 2: Handle image - upload file or generate
+      if (uploadedFile) {
+        try {
+          imageUrl = await uploadFile(uploadedFile);
+        } catch (error) {
+          toast.error(
+            error instanceof Error
+              ? `Failed to upload image: ${error.message}`
+              : "Failed to upload image.",
+          );
+          setIsSaving(false);
+          return;
+        }
+      } else {
+        // Generate image if no file uploaded
+        setIsGeneratingImage(true);
+        try {
+          imageUrl = await generateImage(front, back);
+        } catch (error) {
+          // Don't fail the whole operation if image generation fails
+          console.warn("Image generation failed:", error);
+          toast.warning("Card added, but image generation failed.");
+        }
+        setIsGeneratingImage(false);
+      }
+
+      // Step 3: Create card
+      const parsed = cardCreateSchema.parse({
+        front: front.trim(),
+        back: back.trim(),
+        imageUrl,
+      });
+
+      const response = await fetch(`/api/decks/${deckId}/cards`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        toast.error(payload?.error ?? "Unable to add card.");
+        setIsSaving(false);
+        return;
+      }
+
+      toast.success("Card added.");
+      form.reset({ front: "", back: "", imageUrl: undefined });
+      setUploadedFile(null);
+      setOpen(false);
+      onComplete();
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to add card.",
+      );
+    } finally {
+      setIsSaving(false);
+      setIsGeneratingFront(false);
+      setIsGeneratingImage(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      form.reset({ front: "", back: "", imageUrl: undefined });
+      setUploadedFile(null);
+      setIsGeneratingFront(false);
+      setIsGeneratingImage(false);
+    }
+  }, [open, form]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -661,32 +849,19 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
         <DialogHeader>
           <DialogTitle>New card</DialogTitle>
           <DialogDescription>
-            Provide front and back content. You can attach an optional image.
+            Provide the answer/keyword (back). Front will be auto-generated if left empty. Drag & drop an image or let AI generate one.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
             <FormField
               control={form.control}
-              name="front"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Front</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={3} value={field.value ?? ""} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="back"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Back</FormLabel>
+                  <FormLabel>Back (Answer/Keyword) *</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={4} value={field.value ?? ""} />
+                    <Textarea {...field} rows={4} value={field.value ?? ""} placeholder="Enter the answer or keyword..." />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -694,25 +869,81 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
             />
             <FormField
               control={form.control}
-              name="imageUrl"
+              name="front"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Image URL (optional)</FormLabel>
+                  <FormLabel>Front (Optional - will be auto-generated if empty)</FormLabel>
                   <FormControl>
-                    <Input
-                      {...field}
-                      value={field.value ?? ""}
-                      onChange={(event) => field.onChange(event.target.value || undefined)}
-                      placeholder="https://"
-                    />
+                    <Textarea {...field} rows={3} value={field.value ?? ""} placeholder="Leave empty to auto-generate from back..." />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+            <div className="space-y-2">
+              <FormLabel>Image (Optional)</FormLabel>
+              <div
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                  dragActive
+                    ? "border-[#7a68b6] bg-[#f4ecff]"
+                    : "border-[#d9c8ff] bg-[#faf7ff]"
+                }`}
+              >
+                {uploadedFile ? (
+                  <div className="space-y-2">
+                    <p className="text-sm text-[#5a46a5] font-medium">{uploadedFile.name}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setUploadedFile(null)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-[#7a68b6] mb-2">
+                      Drag & drop an image here, or click to browse
+                    </p>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileInput}
+                      className="hidden"
+                      id="image-upload"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => document.getElementById("image-upload")?.click()}
+                    >
+                      Browse files
+                    </Button>
+                    <p className="text-xs text-[#8f7cc8] mt-2">
+                      If no image is provided, AI will generate one automatically
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
             <DialogFooter>
-              <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Adding…" : "Add card"}
+              <Button 
+                type="submit" 
+                disabled={isSaving || isGeneratingFront || isGeneratingImage}
+              >
+                {isGeneratingFront
+                  ? "Generating front…"
+                  : isGeneratingImage
+                    ? "Generating image…"
+                    : isSaving
+                      ? "Adding…"
+                      : "Add card"}
               </Button>
             </DialogFooter>
           </form>

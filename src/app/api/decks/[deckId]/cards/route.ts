@@ -34,6 +34,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonError("Deck not found.", 404);
     }
 
+    // Front should be generated client-side if not provided, but handle edge case
+    if (!parsed.data.front || parsed.data.front.trim().length === 0) {
+      return jsonError("Front is required. It should be generated automatically if not provided.", 400);
+    }
+
     const card = await prisma.card.create({
       data: {
         deckId,

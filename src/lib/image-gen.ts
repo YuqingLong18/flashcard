@@ -196,15 +196,15 @@ async function callOpenRouterEndpoint({
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
       signal: controller.signal,
-    });
+  });
     clearTimeout(timeoutId);
-    const raw = await response.text();
-    return { response, raw };
+  const raw = await response.text();
+  return { response, raw };
   } catch (error) {
     clearTimeout(timeoutId);
     
