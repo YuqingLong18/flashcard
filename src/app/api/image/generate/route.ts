@@ -19,7 +19,11 @@ export async function POST(request: Request) {
 
     const { front, back, modelId, promptOverride } = parsed.data;
     const prompt = promptOverride ?? buildImagePrompt(front, back);
-    const imageUrl = await generateImage({ prompt, modelId });
+    const imageUrl = await generateImage({ 
+      prompt, 
+      modelId,
+      userId: guard.session.user.id,
+    });
 
     return jsonOk({ imageUrl });
   } catch (error) {

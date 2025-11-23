@@ -4,6 +4,7 @@ import { jsonError, jsonOk } from "@/lib/api";
 import { requireTeacher } from "@/lib/auth-guards";
 import { prisma } from "@/lib/prisma";
 import { cleanContent } from "@/lib/sanitize";
+import { getImageUrl } from "@/lib/storage";
 import { deckUpdateSchema } from "@/lib/validators";
 
 interface RouteContext {
@@ -36,7 +37,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return jsonError("Deck not found.", 404);
   }
 
-  return jsonOk(deck);
+  // Convert image URLs to use proxy endpoint
+  return jsonOk({
+    ...deck,
+    cards: deck.cards.map((card) => ({
+      ...card,
+      imageUrl: card.imageUrl ? getImageUrl(card.imageUrl) : null,
+    })),
+  });
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {

@@ -1,5 +1,6 @@
 import { jsonError, jsonOk } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
+import { getImageUrl } from "@/lib/storage";
 
 interface RouteContext {
   params: Promise<{
@@ -125,7 +126,7 @@ export async function GET(request: Request, context: RouteContext) {
       id: selected.card.id,
       front: selected.card.front,
       back: selected.card.back,
-      imageUrl: selected.card.imageUrl,
+      imageUrl: selected.card.imageUrl ? getImageUrl(selected.card.imageUrl) : null,
     },
     stats: {
       knowCount: selected.knowCount,

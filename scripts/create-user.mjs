@@ -1,5 +1,13 @@
 #!/usr/bin/env node
 
+/**
+ * @deprecated This script is no longer used. User authentication is now handled
+ * by an external credential database. Users are automatically synced to Prisma
+ * when they log in via the NextAuth credentials provider.
+ * 
+ * This script is kept for reference but should not be used for creating users.
+ */
+
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { hash } from "bcrypt";
@@ -7,6 +15,9 @@ import { z } from "zod";
 
 function printUsage() {
   console.log("Usage: node scripts/create-user.mjs --email <email> --password <password> [--name <display name>]");
+  console.log("\n⚠️  WARNING: This script is deprecated.");
+  console.log("User authentication is now handled by an external credential database.");
+  console.log("Users are automatically synced to Prisma when they log in.");
 }
 
 function parseArgs(argv) {

@@ -773,6 +773,19 @@ function CardTable({
                       src={card.imageUrl}
                       alt={card.front}
                       className="max-h-full max-w-full object-contain"
+                      onError={(e) => {
+                        // If image fails to load, try reconstructing URL from MinIO
+                        const img = e.currentTarget;
+                        const originalSrc = img.src;
+                        // Extract key and try MinIO direct URL
+                        if (originalSrc.includes("/uploads/")) {
+                          const keyMatch = originalSrc.match(/\/uploads\/[^/]+$/);
+                          if (keyMatch && process.env.NEXT_PUBLIC_STORAGE_ENDPOINT) {
+                            const key = keyMatch[0].slice(1); // Remove leading slash
+                            img.src = `${process.env.NEXT_PUBLIC_STORAGE_ENDPOINT}/${process.env.NEXT_PUBLIC_STORAGE_BUCKET || "flashrooms"}/${key}`;
+                          }
+                        }
+                      }}
                     />
                   </div>
                 ) : (

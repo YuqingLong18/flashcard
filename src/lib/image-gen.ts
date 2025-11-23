@@ -119,7 +119,7 @@ interface ImagePayload {
   image_url?: string;
 }
 
-function resolveHeaders() {
+function resolveHeaders(userId?: string) {
   if (!process.env.OPENROUTER_API_KEY) {
     throw new Error("OPENROUTER_API_KEY is not configured");
   }
@@ -130,13 +130,20 @@ function resolveHeaders() {
     "http://localhost:3000";
   const title = process.env.OPENROUTER_TITLE ?? "Flashrooms";
 
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     Accept: "application/json",
     Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
     "HTTP-Referer": referer,
     "X-Title": title,
   };
+
+  // Add user identification if available (for OpenRouter tracking/rate limiting)
+  if (userId) {
+    headers["X-User-ID"] = userId;
+  }
+
+  return headers;
 }
 
 function shouldUseResponsesEndpoint(model: string) {
@@ -184,13 +191,45 @@ async function callOpenRouterEndpoint({
   headers: Record<string, string>;
   body: unknown;
 }) {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
-  const raw = await response.text();
-  return { response, raw };
+  const timeoutMs = 30000; // 30 seconds timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const raw = await response.text();
+    return { response, raw };
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    // Provide more helpful error messages
+    if (error instanceof Error) {
+      if (error.name === "AbortError" || error.message.includes("timeout")) {
+        throw new Error(
+          `OpenRouter API request timed out after ${timeoutMs}ms. ` +
+            `This could be due to network issues, firewall restrictions, or OpenRouter API being slow. ` +
+            `Please check your network connection and try again.`,
+        );
+      }
+      if (error.message.includes("fetch failed") || error.message.includes("ECONNREFUSED")) {
+        throw new Error(
+          `Failed to connect to OpenRouter API at ${endpoint}. ` +
+            `This could be due to network connectivity issues, firewall restrictions, or DNS problems. ` +
+            `Please check your network connection and ensure OpenRouter API is accessible. ` +
+            `Original error: ${error.message}`,
+        );
+      }
+      // Re-throw with original message if it's already descriptive
+      throw error;
+    }
+    throw error;
+  }
 }
 
 function pickFirstImage(payload: unknown): {
@@ -347,9 +386,11 @@ async function resolveBufferFromSource(source: string) {
 export async function generateImage({
   prompt,
   modelId,
+  userId,
 }: {
   prompt: string;
   modelId?: string;
+  userId?: string;
 }) {
   if (!prompt.trim()) {
     throw new Error("Prompt is required to generate an image");
@@ -357,7 +398,7 @@ export async function generateImage({
 
   const resolvedModel =
     modelId ?? process.env.IMAGE_MODEL_ID ?? "stability/sdxl";
-  const headers = resolveHeaders();
+  const headers = resolveHeaders(userId);
 
   let response: Response;
   let raw: string;

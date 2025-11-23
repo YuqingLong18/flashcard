@@ -58,6 +58,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const imageUrl = await generateImage({
       prompt,
       modelId,
+      userId: guard.session.user.id,
     });
 
     const updateResult = await prisma.card.updateMany({

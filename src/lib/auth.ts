@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import type { Role } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 const CREDENTIAL_DB_URL = process.env.CREDENTIAL_DB_URL || "http://localhost:3000";
 
@@ -57,14 +58,54 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Ensure user exists in Prisma database
+        // Use the external credential DB ID as the Prisma user ID
+        const email = `${userInfo.username}@local`;
+        
+        // Try to find user by ID first
+        let user = await prisma.user.findUnique({
+          where: { id: userInfo.id },
+        });
+
+        if (!user) {
+          // If not found by ID, check if user exists with this email
+          const existingByEmail = await prisma.user.findUnique({
+            where: { email },
+          });
+
+          if (existingByEmail) {
+            // User exists with different ID - use existing user
+            user = existingByEmail;
+          } else {
+            // Create new user with the credential DB ID
+            user = await prisma.user.create({
+              data: {
+                id: userInfo.id,
+                email: email,
+                name: userInfo.username,
+                role: "TEACHER" as Role,
+              },
+            });
+          }
+        } else {
+          // Update existing user if needed
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+              name: userInfo.username,
+              email: email,
+            },
+          });
+        }
+
         // Default role to TEACHER for compatibility with existing code
         // You can customize this logic if needed
         return {
-          id: userInfo.id,
+          id: user.id,
           username: userInfo.username,
-          email: `${userInfo.username}@local`, // Placeholder email for compatibility
-          role: "TEACHER" as Role,
-          name: userInfo.username,
+          email: user.email,
+          role: user.role,
+          name: user.name || userInfo.username,
         };
       },
     }),

@@ -5,6 +5,7 @@ import { DeckBuilder } from "@/components/decks/deck-builder";
 import { PlayDeckButton } from "@/components/decks/play-deck-button";
 import { Button } from "@/components/ui/button";
 import { prisma } from "@/lib/prisma";
+import { getImageUrl } from "@/lib/storage";
 import { requireSessionUser } from "@/lib/session";
 import { formatDistanceToNow } from "date-fns";
 
@@ -72,7 +73,7 @@ export default async function DeckBuildPage({ params }: BuildPageProps) {
             id: card.id,
             front: card.front,
             back: card.back,
-            imageUrl: card.imageUrl,
+            imageUrl: card.imageUrl ? getImageUrl(card.imageUrl) : null,
             createdAt: card.createdAt.toISOString(),
             updatedAt: card.updatedAt.toISOString(),
           })),
