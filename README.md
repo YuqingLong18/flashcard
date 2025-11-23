@@ -31,8 +31,9 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
    DATABASE_URL="postgresql://USER:PASSWORD@HOST:PORT/flashrooms"
    NEXTAUTH_SECRET="generated-long-secret"
    CREDENTIAL_DB_URL="http://localhost:3000"  # URL to credential database API
-   OPENROUTER_API_KEY="sk-..."               # required for AI image generation
-   IMAGE_MODEL_ID="stability/sdxl"           # optional override of the default model
+   OPENROUTER_API_KEY="sk-..."               # required for AI features
+   CHAT_MODEL_ID="google/gemini-3-pro-preview"  # model for card suggestions (default: google/gemini-3-pro-preview)
+   IMAGE_MODEL_ID="google/gemini-3-pro-image-preview"  # model for image generation (default: google/gemini-3-pro-image-preview)
    IMAGE_API_MODE="responses"                # set to "responses" for chat-style image models (e.g. Gemini)
    IMAGE_SIZE="1024x1024"                    # optional override for generated image size
    OPENROUTER_SITE_URL="http://localhost:3000" # required HTTP referer for OpenRouter

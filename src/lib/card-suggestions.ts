@@ -38,7 +38,7 @@ function buildSystemPrompt() {
     "You help teachers create flashcard decks for classroom study.",
     "Always reply with strict JSON that matches this shape:",
     '{ "cards": [ { "front": "string", "back": "string" } ] }.',
-    "Keep each front concise (term, question, or prompt) and each back a short answer or explanation.",
+    "The front should be a concise description of a definition, concept or phenomenon, which serves as a question for the student the think about. and each back a short answer, i.e. the concept or term described by the front.",
     "Do not include markdown, code fences, commentary, or additional keys.",
     "Stay appropriate for students.",
   ].join(" ");
@@ -212,10 +212,11 @@ export async function generateCardSuggestions({
 }): Promise<CardSuggestion[]> {
   const headers = resolveHeaders();
   const modelId =
+    process.env.CHAT_MODEL_ID ??
     process.env.SUGGESTION_MODEL_ID ??
     process.env.CARD_SUGGESTION_MODEL_ID ??
     process.env.TEXT_MODEL_ID ??
-    "gpt-4o-mini";
+    "google/gemini-3-pro-preview";
 
   const response = await fetch(OPENROUTER_CHAT_URL, {
     method: "POST",

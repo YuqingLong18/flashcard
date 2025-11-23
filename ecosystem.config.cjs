@@ -25,7 +25,8 @@ module.exports = {
           STORAGE_SECRET_KEY: "xm8wreWmBr!",
 
           OPENROUTER_API_KEY: "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",
-          IMAGE_MODEL_ID: "google/gemini-2.5-flash-image",
+          CHAT_MODEL_ID: "google/gemini-3-pro-preview",
+          IMAGE_MODEL_ID: "google/gemini-3-pro-image-preview",
           RUN_CODE_TTL_MINUTES: "120",
           RUN_CODE_LENGTH: "6"
         }

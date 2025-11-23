@@ -397,7 +397,7 @@ export async function generateImage({
   }
 
   const resolvedModel =
-    modelId ?? process.env.IMAGE_MODEL_ID ?? "stability/sdxl";
+    modelId ?? process.env.IMAGE_MODEL_ID ?? "google/gemini-3-pro-image-preview";
   const headers = resolveHeaders(userId);
 
   let response: Response;

@@ -46,18 +46,11 @@ const aiSuggestionFormSchema = z.object({
     .min(10, "Please describe the deck (10+ characters).")
     .max(600, "Keep descriptions under 600 characters."),
   count: z
-    .string()
-    .trim()
-    .min(1, "Card count is required.")
-    .refine((value) => /^\d+$/.test(value), {
-      message: "Enter a whole number.",
-    })
-    .transform((value) => Number(value))
-    .refine((value) => value >= 1 && value <= 20, {
-      message: "You can request between 1 and 20 cards.",
-    }),
+    .number()
+    .int("Card count must be a whole number.")
+    .min(1, "You can request at least 1 card.")
+    .max(20, "You can request at most 20 cards."),
 });
-type AiSuggestionFormInput = z.input<typeof aiSuggestionFormSchema>;
 type AiSuggestionFormValues = z.infer<typeof aiSuggestionFormSchema>;
 
 interface DeckBuilderProps {
@@ -477,11 +470,11 @@ function AiSuggestionDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const defaultDescription = (deckDescription ?? "").trim();
   const normalizedLanguage = (deckLanguage ?? "").trim();
-  const form = useForm<AiSuggestionFormInput>({
+  const form = useForm<AiSuggestionFormValues>({
     resolver: zodResolver(aiSuggestionFormSchema),
     defaultValues: {
       description: defaultDescription,
-      count: "5",
+      count: 5,
     },
   });
 
@@ -489,20 +482,19 @@ function AiSuggestionDialog({
     if (!open) {
       form.reset({
         description: defaultDescription,
-        count: "5",
+        count: 5,
       });
     }
   }, [defaultDescription, form, open]);
 
-  const submit = async (values: AiSuggestionFormInput) => {
-    const parsed: AiSuggestionFormValues = aiSuggestionFormSchema.parse(values);
+  const submit = async (values: AiSuggestionFormValues) => {
     setIsSubmitting(true);
     const response = await fetch(`/api/decks/${deckId}/cards/suggest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        description: parsed.description,
-        count: parsed.count,
+        description: values.description,
+        count: values.count,
       }),
     });
     setIsSubmitting(false);
@@ -602,7 +594,12 @@ function AiSuggestionDialog({
                       min={1}
                       max={20}
                       value={field.value ?? ""}
-                      onChange={(event) => field.onChange(event.target.value)}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        // Convert string to number for the form
+                        const numValue = value === "" ? undefined : Number(value);
+                        field.onChange(numValue);
+                      }}
                     />
                   </FormControl>
                   <FormMessage />
