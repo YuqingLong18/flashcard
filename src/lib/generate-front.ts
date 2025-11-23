@@ -85,11 +85,12 @@ export async function generateFrontFromBack(back: string): Promise<string> {
   }
 
   let parsedPayload: unknown = null;
+  let parsedOk = false;
   try {
     parsedPayload = JSON.parse(rawResponse) as unknown;
+    parsedOk = true;
   } catch {
-    // If JSON parsing fails, try raw response
-    parsedPayload = rawResponse;
+    parsedPayload = null;
   }
 
   // Use the same extraction logic as card suggestions
@@ -98,29 +99,44 @@ export async function generateFrontFromBack(back: string): Promise<string> {
       return "";
     }
 
+    const toText = (value: unknown): string => {
+      if (typeof value === "string") {
+        return value;
+      }
+      if (Array.isArray(value)) {
+        return value
+          .map((item) => {
+            if (!item) return "";
+            if (typeof item === "string") return item;
+            if (typeof item === "object" && "text" in item && typeof (item as { text?: unknown }).text === "string") {
+              return (item as { text?: string }).text ?? "";
+            }
+            return "";
+          })
+          .filter(Boolean)
+          .join("\n");
+      }
+      if (value && typeof value === "object" && "text" in value && typeof (value as { text?: unknown }).text === "string") {
+        return (value as { text?: string }).text ?? "";
+      }
+      return "";
+    };
+
     const root = payload as Record<string, unknown>;
 
     // Try choices array format (OpenAI-style)
-    const choices = root.choices as Array<{ message?: { content?: unknown } }> | undefined;
+    const choices = root.choices as Array<{ message?: { content?: unknown; reasoning?: unknown } }> | undefined;
     if (choices && choices.length > 0) {
-      const message = choices[0]?.message as { content?: unknown } | undefined;
+      const message = choices[0]?.message as { content?: unknown; reasoning?: unknown } | undefined;
       if (message) {
-        const content = message.content;
-        if (typeof content === "string") {
-          return content;
+        const contentText = toText(message.content);
+        if (contentText.trim().length > 0) {
+          return contentText;
         }
-        if (Array.isArray(content)) {
-          return content
-            .map((item) => {
-              if (!item) return "";
-              if (typeof item === "string") return item;
-              if (typeof item === "object" && "text" in item && typeof item.text === "string") {
-                return item.text;
-              }
-              return "";
-            })
-            .filter(Boolean)
-            .join("\n");
+
+        const reasoningText = toText(message.reasoning);
+        if (reasoningText.trim().length > 0) {
+          return reasoningText;
         }
       }
     }
@@ -131,6 +147,9 @@ export async function generateFrontFromBack(back: string): Promise<string> {
     }
     if (typeof root.text === "string") {
       return root.text;
+    }
+    if (typeof (root as { output_text?: unknown }).output_text === "string") {
+      return (root as { output_text: string }).output_text;
     }
 
     // Try candidates array (Gemini-style)
@@ -153,8 +172,8 @@ export async function generateFrontFromBack(back: string): Promise<string> {
     textContent = extractMessageText(parsedPayload);
   }
 
-  if (!textContent && typeof rawResponse === "string" && rawResponse.trim().length > 0) {
-    // Last resort: try to extract from raw response
+  if (!textContent && !parsedOk && typeof rawResponse === "string" && rawResponse.trim().length > 0) {
+    // Last resort when we cannot parse JSON at all: try raw response
     textContent = rawResponse.trim();
   }
 
@@ -175,4 +194,3 @@ export async function generateFrontFromBack(back: string): Promise<string> {
 
   return cleaned;
 }
-

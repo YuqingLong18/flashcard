@@ -625,7 +625,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  
+
   const form = useForm<CardCreateFormInput>({
     resolver: zodResolver(cardCreateSchema),
     defaultValues: {
@@ -634,6 +634,22 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
       imageUrl: undefined,
     },
   });
+
+  const unwrapData = <T,>(payload: unknown): T | null => {
+    if (payload && typeof payload === "object" && "data" in payload) {
+      return ((payload as { data: unknown }).data as T) ?? null;
+    }
+    return (payload as T) ?? null;
+  };
+
+  const parseResponseData = async <T,>(response: Response): Promise<T | null> => {
+    try {
+      const payload = await response.json();
+      return unwrapData<T>(payload);
+    } catch {
+      return null;
+    }
+  };
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -683,11 +699,26 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
       }),
     });
 
-    if (!uploadResponse.ok) {
-      throw new Error("Failed to get upload URL");
+    let payload: unknown = null;
+    try {
+      payload = await uploadResponse.json();
+    } catch {
+      payload = null;
     }
 
-    const { uploadUrl, publicUrl } = await uploadResponse.json();
+    if (!uploadResponse.ok) {
+      const message =
+        (payload as { error?: string } | null)?.error ??
+        "Failed to get upload URL";
+      throw new Error(message);
+    }
+
+    const data = unwrapData<{ uploadUrl?: string; publicUrl?: string }>(payload);
+    const uploadUrl = data?.uploadUrl;
+    const publicUrl = data?.publicUrl;
+    if (!uploadUrl || !publicUrl) {
+      throw new Error("Upload URL missing from response.");
+    }
 
     // Upload file
     const uploadResult = await fetch(uploadUrl, {
@@ -717,7 +748,11 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
       throw new Error(payload?.error ?? "Failed to generate image");
     }
 
-    const { imageUrl } = await response.json();
+    const data = await parseResponseData<{ imageUrl?: string }>(response);
+    const imageUrl = data?.imageUrl;
+    if (!imageUrl) {
+      throw new Error("Image generation did not return a URL.");
+    }
     return imageUrl;
   };
 
@@ -738,12 +773,23 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
             body: JSON.stringify({ back }),
           });
 
-          if (!response.ok) {
-            const payload = await response.json().catch(() => null);
-            throw new Error(payload?.error ?? "Failed to generate front");
+          let payload: unknown = null;
+          try {
+            payload = await response.json();
+          } catch {
+            payload = null;
           }
 
-          const { front: generatedFront } = await response.json();
+          if (!response.ok) {
+            const message =
+              (payload as { error?: string } | null)?.error ??
+              "Failed to generate front";
+            throw new Error(message);
+          }
+
+          const generatedFront =
+            unwrapData<{ front?: string }>(payload)?.front ??
+            (payload as { front?: string } | null)?.front;
           if (!generatedFront || generatedFront.trim().length === 0) {
             throw new Error("Generated front is empty");
           }
@@ -790,7 +836,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
         } catch (error) {
           // Don't fail the whole operation if image generation fails
           console.warn("Image generation failed:", error);
-          toast.warning("Card added, but image generation failed.");
+          toast.warning("Continuing without an image because generation failed.");
         }
         setIsGeneratingImage(false);
       }

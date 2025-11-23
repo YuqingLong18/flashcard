@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 
 import { jsonError, jsonOk } from "@/lib/api";
 import { requireTeacher } from "@/lib/auth-guards";
+import { generateFrontFromBack } from "@/lib/generate-front";
 import { prisma } from "@/lib/prisma";
 import { cleanContent } from "@/lib/sanitize";
 import { cardCreateSchema } from "@/lib/validators";
@@ -34,15 +35,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return jsonError("Deck not found.", 404);
     }
 
-    // Front should be generated client-side if not provided, but handle edge case
-    if (!parsed.data.front || parsed.data.front.trim().length === 0) {
-      return jsonError("Front is required. It should be generated automatically if not provided.", 400);
+    let frontText = parsed.data.front?.trim();
+    if (!frontText) {
+      try {
+        frontText = await generateFrontFromBack(parsed.data.back);
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : "Failed to generate front.";
+        return jsonError(message, 502);
+      }
+    }
+
+    if (!frontText) {
+      return jsonError("Front is required and could not be generated.", 400);
     }
 
     const card = await prisma.card.create({
       data: {
         deckId,
-        front: cleanContent(parsed.data.front),
+        front: cleanContent(frontText),
         back: cleanContent(parsed.data.back),
         imageUrl: parsed.data.imageUrl ?? null,
       },
