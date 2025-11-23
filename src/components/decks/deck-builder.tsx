@@ -60,6 +60,7 @@ interface DeckBuilderProps {
 export function DeckBuilder({ deck }: DeckBuilderProps) {
   const router = useRouter();
   const [isPublished, setIsPublished] = useState(deck.isPublished);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [bulkImageState, setBulkImageState] = useState<{
     running: boolean;
     total: number;
@@ -230,8 +231,30 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
               {bulkImageState.currentFront.replace(/\s+/g, " ").trim().slice(0, 80)}”
             </p>
           )}
-        <CardTable cards={deck.cards} onChanged={() => router.refresh()} />
+        <CardTable
+          cards={deck.cards}
+          onChanged={() => router.refresh()}
+          onPreviewImage={(url) => setPreviewImage(url)}
+        />
       </section>
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div
+            className="max-h-[90vh] max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewImage}
+              alt="Card image full view"
+              className="h-full w-full object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1002,9 +1025,11 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
 function CardTable({
   cards,
   onChanged,
+  onPreviewImage,
 }: {
   cards: DeckWithCards["cards"];
   onChanged: () => void;
+  onPreviewImage: (url: string) => void;
 }) {
   if (cards.length === 0) {
     return (
@@ -1041,7 +1066,11 @@ function CardTable({
               </TableCell>
               <TableCell>
                 {card.imageUrl ? (
-                  <div className="flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg border border-[#e2d3ff] bg-[#f4ecff]">
+                  <button
+                    type="button"
+                    onClick={() => onPreviewImage(card.imageUrl!)}
+                    className="group flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg border border-[#e2d3ff] bg-[#f4ecff] transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={card.imageUrl}
@@ -1051,17 +1080,17 @@ function CardTable({
                         // If image fails to load, try reconstructing URL from MinIO
                         const img = e.currentTarget;
                         const originalSrc = img.src;
-                        // Extract key and try MinIO direct URL
                         if (originalSrc.includes("/uploads/")) {
                           const keyMatch = originalSrc.match(/\/uploads\/[^/]+$/);
                           if (keyMatch && process.env.NEXT_PUBLIC_STORAGE_ENDPOINT) {
-                            const key = keyMatch[0].slice(1); // Remove leading slash
+                            const key = keyMatch[0].slice(1);
                             img.src = `${process.env.NEXT_PUBLIC_STORAGE_ENDPOINT}/${process.env.NEXT_PUBLIC_STORAGE_BUCKET || "flashrooms"}/${key}`;
                           }
                         }
                       }}
                     />
-                  </div>
+                    <span className="sr-only">View image</span>
+                  </button>
                 ) : (
                   <span className="text-xs text-[#8f7cc8]">None</span>
                 )}
