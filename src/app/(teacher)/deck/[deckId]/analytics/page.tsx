@@ -102,7 +102,7 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
   }
 
   const responseTotal = states.reduce(
-    (sum, state) => sum + state.knowCount + state.refresherCount,
+    (sum: number, state: { knowCount: number; refresherCount: number }) => sum + state.knowCount + state.refresherCount,
     0,
   );
 

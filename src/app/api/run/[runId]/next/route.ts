@@ -107,7 +107,7 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   const totalWeight = candidateStates.reduce(
-    (sum, state) => sum + state.weight,
+    (sum: number, state: { weight: number }) => sum + state.weight,
     0,
   );
   let roll = Math.random() * totalWeight;

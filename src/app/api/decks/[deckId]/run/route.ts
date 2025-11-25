@@ -44,7 +44,7 @@ export async function POST(_: Request, context: RouteContext) {
       return jsonError("Deck requires at least one card.", 400);
     }
 
-    const snapshotCardIds = deck.cards.map((card) => card.id);
+    const snapshotCardIds = deck.cards.map((card: { id: string }) => card.id);
     const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
 
     let code = "";

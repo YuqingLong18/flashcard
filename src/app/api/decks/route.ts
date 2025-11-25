@@ -22,8 +22,21 @@ export async function GET() {
     orderBy: [{ updatedAt: "desc" }],
   });
 
+  type DeckWithCount = {
+    id: string;
+    title: string;
+    description: string | null;
+    language: string | null;
+    isPublished: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+    _count: {
+      cards: number;
+    };
+  };
+
   return jsonOk(
-    decks.map((deck) => ({
+    (decks as DeckWithCount[]).map((deck) => ({
       id: deck.id,
       title: deck.title,
       description: deck.description,
