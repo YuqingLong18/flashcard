@@ -2,6 +2,7 @@ import { jsonError, jsonOk } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { cleanContent } from "@/lib/sanitize";
 import { runJoinSchema } from "@/lib/validators";
+import type { Prisma } from "@prisma/client";
 
 export async function POST(request: Request) {
   try {
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       ? cleanContent(parsed.data.nickname)
       : undefined;
 
-    const player = await prisma.$transaction(async (tx) => {
+    const player = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const createdPlayer = await tx.player.create({
         data: {
           runId: run.id,

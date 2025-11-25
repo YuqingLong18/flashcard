@@ -1,6 +1,7 @@
 import { jsonError, jsonOk } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { answerSchema } from "@/lib/validators";
+import type { Prisma } from "@prisma/client";
 
 interface RouteContext {
   params: Promise<{
@@ -53,7 +54,7 @@ export async function POST(request: Request, context: RouteContext) {
       return jsonError("Player not found in this run.", 404);
     }
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const state = await tx.playerCardState.findUnique({
         where: {
           playerId_cardId: {
