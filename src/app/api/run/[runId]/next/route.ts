@@ -98,7 +98,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     if (recentCardIds.length > 0) {
       const filtered = states.filter(
-        (state) => !recentCardIds.includes(state.cardId),
+        (state: { cardId: string }) => !recentCardIds.includes(state.cardId),
       );
       if (filtered.length > 0) {
         candidateStates = filtered;
