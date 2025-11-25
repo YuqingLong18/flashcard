@@ -114,7 +114,19 @@ export function extractKeyFromUrl(url: string): string | null {
       return url.slice(prefix.length);
     }
   }
-  
+
+  // Fallback: try to pull the key from the path even if the host differs (e.g. localhost vs 127.0.0.1)
+  try {
+    const parsed = new URL(url);
+    const needle = `/${bucket}/`;
+    if (bucket && parsed.pathname.includes(needle)) {
+      const idx = parsed.pathname.indexOf(needle);
+      return parsed.pathname.slice(idx + needle.length);
+    }
+  } catch {
+    // ignore parse errors and continue
+  }
+
   // If it doesn't match any known pattern, assume it's already a key
   if (!url.includes("://")) {
     return url;
