@@ -59,7 +59,7 @@ export async function POST(request: Request) {
 
       if (run.snapshotCardIds.length > 0) {
         await tx.playerCardState.createMany({
-          data: run.snapshotCardIds.map((cardId) => ({
+          data: run.snapshotCardIds.map((cardId: string) => ({
             playerId: createdPlayer.id,
             cardId,
           })),
