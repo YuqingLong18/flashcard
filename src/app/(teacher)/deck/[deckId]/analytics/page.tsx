@@ -10,6 +10,14 @@ import { requireSessionUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
+type PlayerCardStateSummary = {
+  cardId: string;
+  playerId: string;
+  knowCount: number;
+  refresherCount: number;
+  mastered: boolean;
+}[];
+
 interface AnalyticsPageProps {
   params: Promise<{
     deckId: string;
@@ -40,7 +48,7 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
     notFound();
   }
 
-  const states = await prisma.playerCardState.findMany({
+  const states: PlayerCardStateSummary = await prisma.playerCardState.findMany({
     where: {
       card: {
         deckId: deck.id,
@@ -55,7 +63,9 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
     },
   });
 
-  const playerIds = new Set(states.map((state) => state.playerId));
+  const playerIds = new Set(
+    states.map((state) => state.playerId),
+  );
   const totalsByCard = new Map<string, {
     totalKnow: number;
     totalRefresher: number;

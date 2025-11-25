@@ -1,5 +1,4 @@
 import Link from "next/link";
-
 import { CreateDeckDialog } from "@/components/decks/create-deck-dialog";
 import { PlayDeckButton } from "@/components/decks/play-deck-button";
 import { Badge } from "@/components/ui/badge";
@@ -15,13 +14,25 @@ import { requireSessionUser } from "@/lib/session";
 import { prisma } from "@/lib/prisma";
 import { formatDistanceToNow } from "date-fns";
 
+type DeckWithCardCount = {
+  id: string;
+  title: string;
+  description: string | null;
+  language: string | null;
+  isPublished: boolean;
+  updatedAt: Date;
+  _count: {
+    cards: number;
+  };
+};
+
 export default async function DashboardPage() {
   const { session, userId } = await requireSessionUser();
   if (!session?.user || !userId) {
     return null;
   }
 
-  const decks = await prisma.deck.findMany({
+  const decks: DeckWithCardCount[] = await prisma.deck.findMany({
     where: { ownerId: userId },
     orderBy: [{ updatedAt: "desc" }],
     include: {
