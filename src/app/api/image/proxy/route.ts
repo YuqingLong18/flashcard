@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
+import type { GetObjectCommandOutput } from "@aws-sdk/client-s3";
+import { Readable } from "node:stream";
 
 const s3 = new S3Client({
   region: process.env.STORAGE_REGION ?? "auto",
@@ -40,14 +42,7 @@ export async function GET(request: NextRequest) {
       return new Response("Image not found", { status: 404 });
     }
 
-    // Convert stream to buffer
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of response.Body as any) {
-      chunks.push(chunk);
-    }
-    const buffer = Buffer.concat(chunks);
-
-    // Determine content type
+    const buffer = await bodyToBuffer(response.Body);
     const contentType = response.ContentType || "image/png";
 
     return new Response(buffer, {
@@ -62,3 +57,36 @@ export async function GET(request: NextRequest) {
   }
 }
 
+async function bodyToBuffer(body: GetObjectCommandOutput["Body"]) {
+  if (!body) {
+    throw new Error("Response body is empty");
+  }
+
+  if (body instanceof Readable) {
+    const chunks: Buffer[] = [];
+    for await (const chunk of body) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk));
+    }
+    return Buffer.concat(chunks);
+  }
+
+  if (body instanceof Blob) {
+    const arrayBuffer = await body.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  if (body instanceof ReadableStream) {
+    const reader = body.getReader();
+    const chunks: Buffer[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(Buffer.from(value));
+      }
+    }
+    return Buffer.concat(chunks);
+  }
+
+  throw new Error("Unsupported response body type");
+}
