@@ -1,14 +1,18 @@
 import { jsonError } from "@/lib/api";
 import { getCurrentSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Role } from "@prisma/client";
+import type { UserRole } from "@/types/roles";
 
 /**
  * Ensures the user from the session exists in the Prisma database.
  * This is necessary because authentication is handled by an external credential database,
  * but we need the user to exist in Prisma for foreign key relationships.
  */
-async function ensureUserInPrisma(userId: string, userRole: Role, userName?: string | null) {
+async function ensureUserInPrisma(
+  userId: string,
+  userRole: UserRole,
+  userName?: string | null,
+) {
   const email = `${userName || userId}@local`;
   
   try {

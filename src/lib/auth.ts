@@ -1,8 +1,8 @@
 import type { NextAuthOptions } from "next-auth";
 import { getServerSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import type { Role } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import type { UserRole } from "@/types/roles";
 
 const CREDENTIAL_DB_URL = process.env.CREDENTIAL_DB_URL || "http://localhost:3000";
 
@@ -83,7 +83,7 @@ export const authOptions: NextAuthOptions = {
                 id: userInfo.id,
                 email: email,
                 name: userInfo.username,
-                role: "TEACHER" as Role,
+                role: "TEACHER" as UserRole,
               },
             });
           }
@@ -117,7 +117,7 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = (user as { id: string }).id;
-        token.role = (user as { role?: Role }).role;
+        token.role = (user as { role?: UserRole }).role;
       }
       return token;
     },
@@ -125,7 +125,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user && token?.id) {
         session.user.id = token.id as string;
         if (token.role) {
-          session.user.role = token.role as Role;
+          session.user.role = token.role as UserRole;
         }
       }
 
