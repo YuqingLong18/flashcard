@@ -83,7 +83,14 @@ export async function GET(_: Request, context: RouteContext) {
     aggregates.set(state.cardId, bucket);
   }
 
-  const results = cards.map((card) => {
+  type CardWithMetrics = {
+    id: string;
+    front: string;
+    back: string;
+    imageUrl: string | null;
+  };
+  
+  const results = (cards as CardWithMetrics[]).map((card) => {
     const bucket = aggregates.get(card.id);
     if (!bucket) {
       return {

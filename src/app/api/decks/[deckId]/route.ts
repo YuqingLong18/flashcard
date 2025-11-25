@@ -38,9 +38,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   // Convert image URLs to use proxy endpoint
+  type DeckCard = {
+    id: string;
+    front: string;
+    back: string;
+    imageUrl: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  
   return jsonOk({
     ...deck,
-    cards: deck.cards.map((card) => ({
+    cards: (deck.cards as DeckCard[]).map((card) => ({
       ...card,
       imageUrl: card.imageUrl ? getImageUrl(card.imageUrl) : null,
     })),

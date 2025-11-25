@@ -18,6 +18,15 @@ type PlayerCardStateSummary = {
   mastered: boolean;
 }[];
 
+type DeckCard = {
+  id: string;
+  front: string;
+  back: string;
+  imageUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 interface AnalyticsPageProps {
   params: Promise<{
     deckId: string;
@@ -153,7 +162,7 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
             </TableRow>
           </TableHeader>
           <TableBody>
-            {deck.cards.map((card) => {
+            {(deck.cards as DeckCard[]).map((card) => {
               const totals = totalsByCard.get(card.id);
               const masteredRate = totals?.totalPlayers
                 ? Math.round((totals.masteredPlayers / totals.totalPlayers) * 100)

@@ -11,6 +11,15 @@ import { formatDistanceToNow } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
+type DeckCard = {
+  id: string;
+  front: string;
+  back: string;
+  imageUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 interface BuildPageProps {
   params: Promise<{
     deckId: string;
@@ -69,7 +78,7 @@ export default async function DeckBuildPage({ params }: BuildPageProps) {
           isPublished: deck.isPublished,
           createdAt: deck.createdAt.toISOString(),
           updatedAt: deck.updatedAt.toISOString(),
-          cards: deck.cards.map((card) => ({
+          cards: (deck.cards as DeckCard[]).map((card) => ({
             id: card.id,
             front: card.front,
             back: card.back,
