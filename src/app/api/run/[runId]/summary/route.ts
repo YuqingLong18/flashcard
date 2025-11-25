@@ -1,7 +1,6 @@
 import { jsonError, jsonOk } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { getImageUrl } from "@/lib/storage";
-import type { Prisma } from "@prisma/client";
 
 interface RouteContext {
   params: Promise<{
@@ -44,25 +43,15 @@ export async function GET(request: Request, context: RouteContext) {
     },
   });
 
-  type PlayerCardSummary = Prisma.PlayerCardStateGetPayload<{
-    select: {
-      card: {
-        select: {
-          id: true;
-          front: true;
-          back: true;
-          imageUrl: true;
-        };
-      };
+  const formatted = cards.map((state) => {
+    const card = state.card;
+    return {
+      id: card.id,
+      front: card.front,
+      back: card.back,
+      imageUrl: card.imageUrl ? getImageUrl(card.imageUrl) : null,
     };
-  }>;
-
-  const formatted = cards.map(({ card }: PlayerCardSummary) => ({
-    id: card.id,
-    front: card.front,
-    back: card.back,
-    imageUrl: card.imageUrl ? getImageUrl(card.imageUrl) : null,
-  }));
+  });
 
   return jsonOk({ cards: formatted });
 }
