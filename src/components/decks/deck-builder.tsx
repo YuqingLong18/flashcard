@@ -57,6 +57,39 @@ interface DeckBuilderProps {
   deck: DeckWithCards;
 }
 
+// Builds a safe preview URL using the image proxy, regardless of how the value is stored.
+function toPreviewUrl(value?: string | null) {
+  if (!value) return null;
+  if (value.startsWith("/api/image/proxy")) return value;
+
+  // If it's a relative key (no scheme), proxy directly.
+  if (!value.includes("://")) {
+    const key = value.replace(/^\/+/, "");
+    return `/api/image/proxy?key=${encodeURIComponent(key)}`;
+  }
+
+  try {
+    const parsed = new URL(value);
+
+    // Already a proxy URL with key param
+    if (parsed.pathname.startsWith("/api/image/proxy")) {
+      const key = parsed.searchParams.get("key");
+      if (key) return `/api/image/proxy?key=${encodeURIComponent(key)}`;
+    }
+
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const uploadsIndex = parts.indexOf("uploads");
+    if (uploadsIndex >= 0) {
+      const key = parts.slice(uploadsIndex).join("/");
+      return `/api/image/proxy?key=${encodeURIComponent(key)}`;
+    }
+  } catch {
+    // Fall through to return original value
+  }
+
+  return value;
+}
+
 export function DeckBuilder({ deck }: DeckBuilderProps) {
   const router = useRouter();
   const [isPublished, setIsPublished] = useState(deck.isPublished);
@@ -736,9 +769,9 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
       throw new Error(message);
     }
 
-    const data = unwrapData<{ uploadUrl?: string; publicUrl?: string }>(payload);
+    const data = unwrapData<{ uploadUrl?: string; publicUrl?: string; storedUrl?: string; imageUrl?: string }>(payload);
     const uploadUrl = data?.uploadUrl;
-    const publicUrl = data?.publicUrl;
+    const publicUrl = data?.storedUrl ?? data?.publicUrl;
     if (!uploadUrl || !publicUrl) {
       throw new Error("Upload URL missing from response.");
     }
@@ -771,12 +804,12 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
       throw new Error(payload?.error ?? "Failed to generate image");
     }
 
-    const data = await parseResponseData<{ imageUrl?: string }>(response);
-    const imageUrl = data?.imageUrl;
-    if (!imageUrl) {
+    const data = await parseResponseData<{ imageUrl?: string; storedUrl?: string }>(response);
+    const storedUrl = data?.storedUrl ?? data?.imageUrl;
+    if (!storedUrl) {
       throw new Error("Image generation did not return a URL.");
     }
-    return imageUrl;
+    return storedUrl;
   };
 
   const submit = async (values: CardCreateFormInput) => {
@@ -1068,12 +1101,12 @@ function CardTable({
                 {card.imageUrl ? (
                   <button
                     type="button"
-                    onClick={() => onPreviewImage(card.imageUrl!)}
+                    onClick={() => onPreviewImage(toPreviewUrl(card.imageUrl!) ?? card.imageUrl!)}
                     className="group flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg border border-[#e2d3ff] bg-[#f4ecff] transition hover:-translate-y-0.5 hover:shadow-md"
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={card.imageUrl}
+                      src={toPreviewUrl(card.imageUrl) ?? card.imageUrl}
                       alt={card.front}
                       className="max-h-full max-w-full object-contain"
                       onError={(e) => {
@@ -1206,12 +1239,16 @@ function EditCardDialog({
     }
 
     const responseBody = await response.json();
-    const imageUrl = responseBody.data?.imageUrl ?? responseBody.imageUrl;
-    if (!imageUrl) {
+    const storedUrl =
+      responseBody.data?.storedUrl ??
+      responseBody.storedUrl ??
+      responseBody.data?.imageUrl ??
+      responseBody.imageUrl;
+    if (!storedUrl) {
       toast.error("Image generation failed.");
       return;
     }
-    form.setValue("imageUrl", imageUrl);
+    form.setValue("imageUrl", storedUrl);
     toast.success("Image attached.");
   };
 
@@ -1238,7 +1275,12 @@ function EditCardDialog({
     }
 
     const initPayload = await initResponse.json();
-    const { uploadUrl, publicUrl } = initPayload.data ?? initPayload;
+    const {
+      uploadUrl,
+      publicUrl,
+      storedUrl,
+      imageUrl: proxiedUrl,
+    } = initPayload.data ?? initPayload;
 
     const uploadResponse = await fetch(uploadUrl, {
       method: "PUT",
@@ -1253,7 +1295,7 @@ function EditCardDialog({
       return;
     }
 
-    form.setValue("imageUrl", publicUrl);
+    form.setValue("imageUrl", storedUrl ?? publicUrl ?? proxiedUrl);
     toast.success("Image uploaded.");
   };
 
@@ -1316,8 +1358,9 @@ function EditCardDialog({
               control={form.control}
               name="imageUrl"
               render={({ field }) => {
-                const previewUrl =
-                  typeof field.value === "string" && field.value.length > 0 ? field.value : null;
+                const previewUrl = toPreviewUrl(
+                  typeof field.value === "string" && field.value.length > 0 ? field.value : null,
+                );
                 return (
                   <FormItem className="space-y-3">
                     <FormLabel>Image</FormLabel>

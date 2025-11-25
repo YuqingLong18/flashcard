@@ -1,6 +1,6 @@
 import { jsonError, jsonOk } from "@/lib/api";
 import { requireTeacher } from "@/lib/auth-guards";
-import { buildObjectKey, createUploadUrl } from "@/lib/storage";
+import { buildObjectKey, createUploadUrl, getImageUrl } from "@/lib/storage";
 import { uploadInitSchema } from "@/lib/validators";
 
 export async function POST(request: Request) {
@@ -25,7 +25,11 @@ export async function POST(request: Request) {
       contentType: parsed.data.contentType,
     });
 
-    return jsonOk(signed);
+    return jsonOk({
+      ...signed,
+      storedUrl: signed.publicUrl,
+      imageUrl: getImageUrl(signed.publicUrl),
+    });
   } catch (error) {
     console.error(error);
     return jsonError("Failed to create upload URL.", 500);

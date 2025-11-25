@@ -5,6 +5,7 @@ import { requireTeacher } from "@/lib/auth-guards";
 import { generateImage } from "@/lib/image-gen";
 import { prisma } from "@/lib/prisma";
 import { buildImagePrompt } from "@/lib/prompts";
+import { getImageUrl } from "@/lib/storage";
 
 interface RouteContext {
   params: Promise<{
@@ -82,7 +83,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return jsonOk({
       skipped: false,
       cardId,
-      imageUrl,
+      imageUrl: getImageUrl(imageUrl),
+      storedUrl: imageUrl,
     });
   } catch (error) {
     console.error(error);

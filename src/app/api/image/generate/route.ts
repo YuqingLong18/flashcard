@@ -3,6 +3,7 @@ import { requireTeacher } from "@/lib/auth-guards";
 import { generateImage } from "@/lib/image-gen";
 import { buildImagePrompt } from "@/lib/prompts";
 import { imageGenerateSchema } from "@/lib/validators";
+import { getImageUrl } from "@/lib/storage";
 
 export async function POST(request: Request) {
   const guard = await requireTeacher();
@@ -19,13 +20,16 @@ export async function POST(request: Request) {
 
     const { front, back, modelId, promptOverride } = parsed.data;
     const prompt = promptOverride ?? buildImagePrompt(front, back);
-    const imageUrl = await generateImage({ 
-      prompt, 
+    const imageUrl = await generateImage({
+      prompt,
       modelId,
       userId: guard.session.user.id,
     });
 
-    return jsonOk({ imageUrl });
+    return jsonOk({
+      imageUrl: getImageUrl(imageUrl),
+      storedUrl: imageUrl,
+    });
   } catch (error) {
     console.error(error);
     const message =
