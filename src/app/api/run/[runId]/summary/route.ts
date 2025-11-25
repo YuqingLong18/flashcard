@@ -43,7 +43,16 @@ export async function GET(request: Request, context: RouteContext) {
     },
   });
 
-  const formatted = cards.map((state) => {
+  type PlayerCardStateWithCard = {
+    card: {
+      id: string;
+      front: string;
+      back: string;
+      imageUrl: string | null;
+    };
+  };
+
+  const formatted = cards.map((state: PlayerCardStateWithCard) => {
     const card = state.card;
     return {
       id: card.id,
