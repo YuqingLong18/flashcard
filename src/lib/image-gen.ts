@@ -1,3 +1,4 @@
+import { ensurePromptIsSafe } from "@/lib/safety-check";
 import { uploadBuffer, buildObjectKey } from "@/lib/storage";
 
 const OPENROUTER_IMAGES_URL = "https://openrouter.ai/api/v1/images";
@@ -395,6 +396,8 @@ export async function generateImage({
   if (!prompt.trim()) {
     throw new Error("Prompt is required to generate an image");
   }
+
+  await ensurePromptIsSafe({ prompt, type: "image", userId });
 
   const resolvedModel =
     modelId ?? process.env.IMAGE_MODEL_ID ?? "google/gemini-3-pro-image-preview";

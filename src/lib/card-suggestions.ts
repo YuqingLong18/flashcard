@@ -1,4 +1,5 @@
 import { cleanContent } from "@/lib/sanitize";
+import { ensurePromptIsSafe } from "@/lib/safety-check";
 
 const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -217,6 +218,15 @@ export async function generateCardSuggestions({
     process.env.CARD_SUGGESTION_MODEL_ID ??
     process.env.TEXT_MODEL_ID ??
     "google/gemini-3-pro-preview";
+
+  const safetyPrompt = [
+    buildSystemPrompt(),
+    buildUserPrompt({ description, count, context }),
+  ]
+    .join("\n---\n")
+    .slice(0, 8000);
+
+  await ensurePromptIsSafe({ prompt: safetyPrompt, type: "text" });
 
   const response = await fetch(OPENROUTER_CHAT_URL, {
     method: "POST",

@@ -10,6 +10,7 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
 - **Student experience**: keyboard-first play surface with mastery tracking and celebratory finish state
 - **Analytics**: per-card mastery ratios, attempts to mastery, and refresher heatmaps
 - **Authentication**: username/password via NextAuth using centralized credential database
+- **Content safety**: all AI prompts pass through a dedicated moderation model before reaching generators
 
 ## Tech Stack
 
@@ -32,6 +33,7 @@ Flashrooms is a production-grade Next.js 16 application that lets teachers craft
    NEXTAUTH_SECRET="generated-long-secret"
    CREDENTIAL_DB_URL="http://localhost:3000"  # URL to credential database API
    OPENROUTER_API_KEY="sk-..."               # required for AI features
+   SAFETY_MODEL_ID="provider/model"          # small, fast model used to block unsafe prompts
    CHAT_MODEL_ID="google/gemini-3-pro-preview"  # model for card suggestions (default: google/gemini-3-pro-preview)
    IMAGE_MODEL_ID="google/gemini-3-pro-image-preview"  # model for image generation (default: google/gemini-3-pro-image-preview)
    IMAGE_API_MODE="responses"                # set to "responses" for chat-style image models (e.g. Gemini)
