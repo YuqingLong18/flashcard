@@ -1,4 +1,5 @@
 import { cleanContent } from "@/lib/sanitize";
+import { ensurePromptIsSafe } from "@/lib/safety-check";
 
 const OPENROUTER_CHAT_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -44,6 +45,11 @@ export async function generateFrontFromBack(back: string): Promise<string> {
   ].join(" ");
 
   const userPrompt = `Generate a concise flashcard front for this answer/keyword: ${back.trim()}`;
+
+  await ensurePromptIsSafe({
+    prompt: [systemPrompt, userPrompt].join("\n---\n"),
+    type: "text",
+  });
 
   const response = await fetch(OPENROUTER_CHAT_URL, {
     method: "POST",
