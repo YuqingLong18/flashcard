@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
 import { AuthProvider } from "@/components/providers/auth-provider";
+import { LanguageProvider } from "@/components/providers/language-provider";
+import { LanguageToggle } from "@/components/language-toggle";
 import { Toaster } from "@/components/ui/sonner";
+import { getRequestLanguage } from "@/lib/i18n-server";
 import { cn } from "@/lib/utils";
 import { getCurrentSession } from "@/lib/auth";
 
@@ -19,18 +22,22 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const session = await getCurrentSession();
+  const language = getRequestLanguage();
 
   return (
-    <html lang="en">
+    <html lang={language}>
       <body
         className={cn(
           "min-h-screen bg-neutral-50 text-neutral-900 antialiased font-sans",
         )}
       >
-        <AuthProvider session={session}>
-          <div className="flex min-h-screen flex-col">{children}</div>
-          <Toaster richColors position="top-right" />
-        </AuthProvider>
+        <LanguageProvider initialLanguage={language}>
+          <LanguageToggle />
+          <AuthProvider session={session}>
+            <div className="flex min-h-screen flex-col">{children}</div>
+            <Toaster richColors position="top-right" />
+          </AuthProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

@@ -10,9 +10,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { requireSessionUser } from "@/lib/session";
+import { createTranslator } from "@/lib/i18n";
+import { getRequestLanguage } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
+import { requireSessionUser } from "@/lib/session";
 import { formatDistanceToNow } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
 
 type DeckWithCardCount = {
   id: string;
@@ -31,6 +34,9 @@ export default async function DashboardPage() {
   if (!session?.user || !userId) {
     return null;
   }
+  const language = getRequestLanguage();
+  const t = createTranslator(language);
+  const locale = language === "zh" ? zhCN : enUS;
 
   const decks: DeckWithCardCount[] = await prisma.deck.findMany({
     where: { ownerId: userId },
@@ -47,11 +53,10 @@ export default async function DashboardPage() {
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold text-neutral-900">
-            Your decks
+            {t("dashboard.title")}
           </h1>
           <p className="text-sm text-neutral-500">
-            Build content-rich decks, publish when ready, and launch live runs in
-            seconds.
+            {t("dashboard.subtitle")}
           </p>
         </div>
         <CreateDeckDialog />
@@ -60,10 +65,10 @@ export default async function DashboardPage() {
       {decks.length === 0 ? (
         <Card className="border-dashed border-neutral-200 bg-white/70 text-center">
           <CardHeader>
-            <CardTitle className="text-xl">No decks yet</CardTitle>
+            <CardTitle className="text-xl">{t("dashboard.empty.title")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-neutral-500">
-            <p>Start by creating a deck. You can add cards individually or import from CSV.</p>
+            <p>{t("dashboard.empty.description")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -83,7 +88,9 @@ export default async function DashboardPage() {
                     )}
                   </div>
                   <Badge variant={deck.isPublished ? "default" : "secondary"}>
-                    {deck.isPublished ? "Published" : "Draft"}
+                    {deck.isPublished
+                      ? t("dashboard.deck.published")
+                      : t("dashboard.deck.draft")}
                   </Badge>
                 </div>
                 {deck.description && (
@@ -92,22 +99,27 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent className="flex-1 space-y-3 text-sm text-neutral-500">
                 <div className="flex items-center justify-between">
-                  <span>Cards</span>
+                  <span>{t("dashboard.deck.cardsLabel")}</span>
                   <span className="font-medium text-neutral-900">
                     {deck._count.cards}
                   </span>
                 </div>
                 <p className="text-xs text-neutral-500">
-                  Updated {formatDistanceToNow(deck.updatedAt, { addSuffix: true })}
+                  {t("dashboard.deck.updated", {
+                    distance: formatDistanceToNow(deck.updatedAt, {
+                      addSuffix: true,
+                      locale,
+                    }),
+                  })}
                 </p>
               </CardContent>
               <CardFooter className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex gap-2">
                   <Button asChild variant="outline" size="sm">
-                    <Link href={`/deck/${deck.id}/build`}>Build</Link>
+                    <Link href={`/deck/${deck.id}/build`}>{t("common.build")}</Link>
                   </Button>
                   <Button asChild variant="outline" size="sm">
-                    <Link href={`/deck/${deck.id}/analytics`}>Analytics</Link>
+                    <Link href={`/deck/${deck.id}/analytics`}>{t("common.analytics")}</Link>
                   </Button>
                 </div>
                 <PlayDeckButton deckId={deck.id} disabled={!deck.isPublished} />

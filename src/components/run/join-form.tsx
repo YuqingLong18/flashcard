@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -18,15 +18,32 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { runJoinSchema } from "@/lib/validators";
+import { useTranslations } from "@/components/providers/language-provider";
 
-const schema = runJoinSchema.extend({
-  code: runJoinSchema.shape.code.transform((value) => value.toUpperCase()),
-});
-
-type FormInput = z.input<typeof schema>;
+type FormInput = z.infer<typeof runJoinSchema>;
 
 export function JoinForm() {
   const router = useRouter();
+  const t = useTranslations();
+  const schema = useMemo(
+    () =>
+      z.object({
+        code: z
+          .string()
+          .trim()
+          .min(4, t("join.form.validation.codeMin"))
+          .max(12, t("join.form.validation.codeMax"))
+          .transform((value) => value.toUpperCase()),
+        nickname: z
+          .string()
+          .trim()
+          .min(1, t("join.form.validation.nickname"))
+          .max(32)
+          .optional()
+          .transform((value) => (value && value.length > 0 ? value : undefined)),
+      }),
+    [t],
+  );
   const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -50,13 +67,14 @@ export function JoinForm() {
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Unable to join run.");
+      toast.error((payload as { error?: string } | null)?.error ?? t("join.form.error"));
       return;
     }
 
     const payload = await response.json();
     const data = payload.data ?? payload;
-    toast.success(`Joined ${data.deck?.title ?? "run"}.`);
+    const deckLabel = data.deck?.title ?? t("join.form.defaultDeck");
+    toast.success(t("join.form.success", { deck: deckLabel }));
     router.push(`/play/${data.runId}?playerId=${data.playerId}`);
   };
 
@@ -72,11 +90,11 @@ export function JoinForm() {
           name="code"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Session code</FormLabel>
+              <FormLabel>{t("join.form.codeLabel")}</FormLabel>
               <FormControl>
                 <Input
                   {...field}
-                  placeholder="ABC123"
+                  placeholder={t("join.form.codePlaceholder")}
                   maxLength={12}
                   onChange={(event) => field.onChange(event.target.value.toUpperCase())}
                 />
@@ -90,16 +108,16 @@ export function JoinForm() {
           name="nickname"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Nickname (optional)</FormLabel>
+              <FormLabel>{t("join.form.nicknameLabel")}</FormLabel>
               <FormControl>
-                <Input {...field} placeholder="Your name" maxLength={32} />
+                <Input {...field} placeholder={t("join.form.nicknamePlaceholder")} maxLength={32} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? "Joining…" : "Join session"}
+          {isSubmitting ? t("join.form.submitting") : t("join.form.submit")}
         </Button>
       </form>
     </Form>

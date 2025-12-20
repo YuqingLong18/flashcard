@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useLanguage, useTranslations } from "@/components/providers/language-provider";
 
 interface Props {
   deckId: string;
@@ -23,6 +23,18 @@ export function PlayDeckButton({ deckId, disabled }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const { language } = useLanguage();
+  const t = useTranslations();
+  const dateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      }),
+    [language],
+  );
 
   const launchRun = async () => {
     setIsLoading(true);
@@ -33,7 +45,7 @@ export function PlayDeckButton({ deckId, disabled }: Props) {
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Unable to start run.");
+      toast.error((payload as { error?: string } | null)?.error ?? t("deck.play.error"));
       return;
     }
 
@@ -42,7 +54,7 @@ export function PlayDeckButton({ deckId, disabled }: Props) {
     setCode(data.code);
     setExpiresAt(data.expiresAt);
     setOpen(true);
-    toast.success("Session is live. Share the code with students.");
+    toast.success(t("deck.play.success"));
   };
 
   return (
@@ -53,21 +65,18 @@ export function PlayDeckButton({ deckId, disabled }: Props) {
         disabled={disabled || isLoading}
         onClick={launchRun}
       >
-        {isLoading ? "Starting…" : "Play deck"}
+        {isLoading ? t("deck.play.starting") : t("deck.play.button")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Session code</DialogTitle>
-            <DialogDescription>
-              Ask students to visit <strong>join.flashrooms.app</strong> (your
-              domain) and enter this code.
-            </DialogDescription>
+            <DialogTitle>{t("deck.play.dialogTitle")}</DialogTitle>
+            <DialogDescription>{t("deck.play.dialogDescription")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-100 px-6 py-8 text-center">
               <p className="text-sm uppercase tracking-wide text-neutral-500">
-                Share this code
+                {t("deck.play.shareLabel")}
               </p>
               <p className="mt-4 font-mono text-4xl font-semibold tracking-[0.4rem] text-neutral-900">
                 {code}
@@ -75,7 +84,7 @@ export function PlayDeckButton({ deckId, disabled }: Props) {
             </div>
             {expiresAt && (
               <p className="text-sm text-neutral-500">
-                Expires {format(new Date(expiresAt), "MMM d, h:mm a")}
+                {t("deck.play.expires", { time: dateFormatter.format(new Date(expiresAt)) })}
               </p>
             )}
           </div>

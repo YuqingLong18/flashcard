@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useTranslations } from "@/components/providers/language-provider";
 
 interface PlayClientProps {
   runId: string;
@@ -41,6 +42,7 @@ interface SummaryCard {
 }
 
 export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
+  const t = useTranslations();
   const [card, setCard] = useState<NextCardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [showBack, setShowBack] = useState(false);
@@ -50,6 +52,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
   const [summaryCards, setSummaryCards] = useState<SummaryCard[] | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [reviewingCard, setReviewingCard] = useState(false);
 
   const masteredPercent = useMemo(() => {
     if (!progress || progress.total === 0) return 0;
@@ -80,7 +83,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Unable to load next card.");
+      toast.error(payload?.error ?? t("play.toast.nextError"));
       return;
     }
 
@@ -96,7 +99,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
     }
 
     await loadProgress();
-  }, [playerId, runId, loadProgress]);
+  }, [playerId, runId, loadProgress, t]);
 
   const loadSummary = useCallback(async () => {
     setSummaryLoading(true);
@@ -107,7 +110,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
       );
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        toast.error(payload?.error ?? "Unable to load summary.");
+        toast.error(payload?.error ?? t("play.toast.summaryError"));
         setSummaryCards([]);
         return;
       }
@@ -120,12 +123,12 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Unable to load summary.");
+      toast.error(t("play.toast.summaryError"));
       setSummaryCards([]);
     } finally {
       setSummaryLoading(false);
     }
-  }, [playerId, runId]);
+  }, [playerId, runId, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,58 +144,100 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
   }, [loadNextCard]);
 
   const submitAnswer = useCallback(
-    async (label: "KNOW" | "REFRESHER") => {
-      if (!card) return;
+    async (
+      label: "KNOW" | "REFRESHER",
+      options?: {
+        autoAdvance?: boolean;
+      },
+    ) => {
+      if (!card) return false;
       setIsAnswering(true);
-      const response = await fetch(`/api/run/${runId}/answer`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          playerId,
-          cardId: card.card.id,
-          label,
-        }),
-      });
-      setIsAnswering(false);
+      try {
+        const response = await fetch(`/api/run/${runId}/answer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerId,
+            cardId: card.card.id,
+            label,
+          }),
+        });
 
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        toast.error(payload?.error ?? "Could not record answer.");
-        return;
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          toast.error(payload?.error ?? t("play.toast.answerError"));
+          return false;
+        }
+
+        const payload = await response.json();
+        const data = payload.data ?? payload;
+        setFinished(data.progress?.finished ?? false);
+
+        const shouldAutoAdvance = options?.autoAdvance ?? true;
+        if (shouldAutoAdvance) {
+          if (data.progress?.finished) {
+            setCard(null);
+          } else {
+            await loadNextCard();
+          }
+        }
+
+        await loadProgress();
+        return true;
+      } finally {
+        setIsAnswering(false);
       }
-
-      const payload = await response.json();
-      const data = payload.data ?? payload;
-      setFinished(data.progress?.finished ?? false);
-
-      if (data.progress?.finished) {
-        setCard(null);
-      } else {
-        await loadNextCard();
-      }
-
-      await loadProgress();
     },
-    [card, playerId, runId, loadNextCard, loadProgress],
+    [card, playerId, runId, loadNextCard, loadProgress, t],
   );
+
+  const handleContinue = useCallback(async () => {
+    if (!card || !reviewingCard || isAnswering) return;
+    setIsAnswering(true);
+    try {
+      if (!finished) {
+        await loadNextCard();
+      } else {
+        setCard(null);
+      }
+      setReviewingCard(false);
+      setShowBack(false);
+    } finally {
+      setIsAnswering(false);
+    }
+  }, [card, finished, isAnswering, loadNextCard, reviewingCard]);
+
+  const handleNotSure = useCallback(async () => {
+    if (!card || isAnswering) return;
+    if (reviewingCard) {
+      await handleContinue();
+      return;
+    }
+
+    setShowBack(true);
+    setReviewingCard(true);
+    const success = await submitAnswer("REFRESHER", { autoAdvance: false });
+    if (!success) {
+      setReviewingCard(false);
+      setShowBack(false);
+    }
+  }, [card, handleContinue, isAnswering, reviewingCard, submitAnswer]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === "k") {
+      const key = event.key.toLowerCase();
+      if (key === "k" && !reviewingCard) {
         event.preventDefault();
-        submitAnswer("KNOW");
-      } else if (event.key.toLowerCase() === "r") {
+        void submitAnswer("KNOW");
+      } else if (key === "r") {
         event.preventDefault();
-        submitAnswer("REFRESHER");
-      } else if (event.key === " ") {
-        event.preventDefault();
-        setShowBack((prev) => !prev);
+        void handleNotSure();
       }
     };
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [submitAnswer]);
+  }, [handleNotSure, reviewingCard, submitAnswer]);
 
   useEffect(() => {
     if (finished && summaryCards === null && !summaryLoading) {
@@ -204,7 +249,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-6">
         <div className="h-32 w-72 animate-pulse rounded-3xl bg-[#efe4ff]" />
-        <p className="text-sm text-[#6c5aa8]">Loading your first card…</p>
+        <p className="text-sm text-[#6c5aa8]">{t("play.loadingFirstCard")}</p>
       </div>
     );
   }
@@ -213,31 +258,34 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
     <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center gap-10 rounded-3xl border border-[#ddccff] bg-gradient-to-br from-[#faf7ff] via-[#f4edff] to-[#efe4ff] px-6 py-12 shadow-[0_20px_60px_-38px_rgba(120,80,185,0.6)]">
       <div className="w-full space-y-3 text-center">
         <p className="text-xs uppercase tracking-wide text-[#7a68b6]">
-          Playing deck
+          {t("play.header.playing")}
         </p>
         <h1 className="text-2xl font-semibold text-[#362773]">{deckTitle}</h1>
         {progress && (
           <div className="space-y-2">
             <Progress value={masteredPercent} />
             <p className="text-sm text-[#6c5aa8]">
-              Mastered {progress.masteredCount} of {progress.total} cards
+              {t("play.header.masteredStatus", {
+                mastered: progress.masteredCount,
+                total: progress.total,
+              })}
             </p>
           </div>
         )}
       </div>
 
-      {finished ? (
+      {finished && !reviewingCard ? (
         <div className="flex w-full flex-col gap-6">
           <div className="flex flex-col items-center gap-4 text-center">
             <p className="text-3xl font-semibold text-[#362773]">
-              🎉 All cards mastered!
+              {t("play.finished.title")}
             </p>
             <p className="text-sm text-[#6c5aa8]">
-              Great job! Review what you just practiced below.
+              {t("play.finished.description")}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button asChild variant="outline">
-                <Link href="/join">Join another session</Link>
+                <Link href="/join">{t("play.finished.joinAnother")}</Link>
               </Button>
             </div>
           </div>
@@ -245,13 +293,15 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
           <div className="rounded-2xl border border-[#ddccff] bg-white/70 p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3 border-b border-[#e9e0ff] pb-3">
               <div>
-                <p className="text-sm font-semibold text-[#3b2a7b]">Your cards</p>
+                <p className="text-sm font-semibold text-[#3b2a7b]">
+                  {t("play.finished.cardsHeading")}
+                </p>
                 <p className="text-xs text-[#7a68b6]">
-                  Front, back, and any visuals you saw during practice.
+                  {t("play.finished.cardsSubheading")}
                 </p>
               </div>
               {summaryLoading && (
-                <span className="text-xs text-[#7a68b6]">Loading…</span>
+                <span className="text-xs text-[#7a68b6]">{t("play.finished.loading")}</span>
               )}
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -262,7 +312,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
                 >
                   <div className="space-y-2">
                     <p className="text-xs uppercase tracking-wide text-[#7a68b6]">
-                      Front
+                      {t("play.summary.front")}
                     </p>
                     <p className="whitespace-pre-wrap text-sm font-semibold text-[#2f1d59]">
                       {summary.front}
@@ -270,7 +320,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
                   </div>
                   <div className="space-y-2">
                     <p className="text-xs uppercase tracking-wide text-[#7a68b6]">
-                      Back
+                      {t("play.summary.back")}
                     </p>
                     <p className="whitespace-pre-wrap text-sm text-[#5a46a5]">
                       {summary.back}
@@ -278,7 +328,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
                   </div>
                   <div className="space-y-2">
                     <p className="text-xs uppercase tracking-wide text-[#7a68b6]">
-                      Image
+                      {t("play.summary.image")}
                     </p>
                     {summary.imageUrl ? (
                       <button
@@ -295,14 +345,14 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
                         <span className="absolute inset-0 bg-black/10 opacity-0 transition group-hover:opacity-100" />
                       </button>
                     ) : (
-                      <p className="text-xs text-[#8f7cc8]">No image attached.</p>
+                      <p className="text-xs text-[#8f7cc8]">{t("play.summary.noImage")}</p>
                     )}
                   </div>
                 </div>
               ))}
               {!summaryLoading && (summaryCards ?? []).length === 0 && (
                 <div className="rounded-xl border border-dashed border-[#ddccff] bg-[#f7f2ff] p-6 text-center text-sm text-[#7a68b6]">
-                  No cards to show. Try refreshing the page if this seems wrong.
+                  {t("play.summary.empty")}
                 </div>
               )}
             </div>
@@ -326,15 +376,21 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
               )}
               <div className="space-y-3 text-center">
                 <p className="text-xs uppercase tracking-wide text-[#7a68b6]">
-                  {showBack ? "Answer" : "Prompt"}
+                  {showBack ? t("play.card.answer") : t("play.card.prompt")}
                 </p>
                 <p className="whitespace-pre-wrap text-2xl font-medium text-[#2f1d59]">
                   {showBack ? card.card.back : card.card.front}
                 </p>
               </div>
               <div className="flex items-center justify-center gap-3 text-xs text-[#7a68b6]">
-                <span>Know: {card.stats.knowCount}</span>
-                <span>Refresher: {card.stats.refresherCount}</span>
+                <span>
+                  {t("play.card.knowStat", { count: card.stats.knowCount })}
+                </span>
+                <span>
+                  {t("play.card.refresherStat", {
+                    count: card.stats.refresherCount,
+                  })}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -342,35 +398,32 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Button
               size="lg"
-              variant="outline"
-              onClick={() => setShowBack((prev) => !prev)}
-            >
-              {showBack ? "Show front" : "Flip card"} (Space)
-            </Button>
-            <Button
-              size="lg"
               variant="secondary"
-              onClick={() => submitAnswer("REFRESHER")}
+              onClick={() => void handleNotSure()}
               disabled={isAnswering}
             >
-              {isAnswering ? "Saving…" : "I need a refresher…"} (R)
+              {isAnswering && !reviewingCard
+                ? t("common.saving")
+                : reviewingCard
+                  ? t("play.controls.continue")
+                  : t("play.controls.refresher")} (R)
             </Button>
-            <Button
-              size="lg"
-              className="bg-emerald-600 text-white hover:bg-emerald-500"
-              onClick={() => submitAnswer("KNOW")}
-              disabled={isAnswering}
-            >
-              {isAnswering ? "Saving…" : "I know!"} (K)
-            </Button>
+            {!reviewingCard && (
+              <Button
+                size="lg"
+                className="bg-emerald-600 text-white hover:bg-emerald-500"
+                onClick={() => void submitAnswer("KNOW")}
+                disabled={isAnswering}
+              >
+                {isAnswering ? t("common.saving") : t("play.controls.know")} (K)
+              </Button>
+            )}
           </div>
         </>
       ) : (
         <div className="flex flex-col items-center gap-4 text-center">
-          <p className="text-lg text-[#6c5aa8]">
-            Waiting for cards… If this message persists, the run may have ended.
-          </p>
-          <Button onClick={() => loadNextCard()}>Try again</Button>
+          <p className="text-lg text-[#6c5aa8]">{t("play.waiting")}</p>
+          <Button onClick={() => loadNextCard()}>{t("play.retry")}</Button>
         </div>
       )}
 
@@ -386,7 +439,7 @@ export function PlayClient({ runId, playerId, deckTitle }: PlayClientProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={selectedImage}
-              alt="Card image full view"
+              alt={t("play.modal.imageAlt")}
               className="h-full w-full object-contain"
             />
           </div>

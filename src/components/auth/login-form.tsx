@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -18,16 +18,24 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useTranslations } from "@/components/providers/language-provider";
 
-const schema = z.object({
-  username: z.string().min(1, "Username is required."),
-  password: z.string().min(1, "Password is required."),
-});
-
-type FormSchema = z.infer<typeof schema>;
+type FormSchema = {
+  username: string;
+  password: string;
+};
 
 export function LoginForm() {
   const router = useRouter();
+  const t = useTranslations();
+  const schema = useMemo(
+    () =>
+      z.object({
+        username: z.string().min(1, t("login.form.validation.username")),
+        password: z.string().min(1, t("login.form.validation.password")),
+      }),
+    [t],
+  );
   const form = useForm<FormSchema>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -49,11 +57,11 @@ export function LoginForm() {
     setIsLoading(false);
 
     if (result?.error) {
-      toast.error("Unable to sign in. Check your credentials.");
+      toast.error(t("login.form.toastError"));
       return;
     }
 
-    toast.success("Welcome back!");
+    toast.success(t("login.form.toastSuccess"));
     router.replace("/dashboard");
   };
 
@@ -69,12 +77,12 @@ export function LoginForm() {
           name="username"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Username</FormLabel>
+              <FormLabel>{t("login.form.usernameLabel")}</FormLabel>
               <FormControl>
                 <Input
                   {...field}
                   type="text"
-                  placeholder="Enter your username"
+                  placeholder={t("login.form.usernamePlaceholder")}
                   autoComplete="username"
                 />
               </FormControl>
@@ -88,12 +96,12 @@ export function LoginForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Password</FormLabel>
+              <FormLabel>{t("login.form.passwordLabel")}</FormLabel>
               <FormControl>
                 <Input
                   {...field}
                   type="password"
-                  placeholder="••••••••"
+                  placeholder={t("login.form.passwordPlaceholder")}
                   autoComplete="current-password"
                 />
               </FormControl>
@@ -108,7 +116,7 @@ export function LoginForm() {
           className="w-full"
           disabled={isLoading}
         >
-          {isLoading ? "Signing in..." : "Sign In"}
+          {isLoading ? t("login.form.submitting") : t("login.form.submit")}
         </Button>
       </form>
     </Form>

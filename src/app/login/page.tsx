@@ -2,10 +2,14 @@ import { redirect } from "next/navigation";
 
 import { LoginForm } from "@/components/auth/login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createTranslator } from "@/lib/i18n";
+import { getRequestLanguage } from "@/lib/i18n-server";
 import { getCurrentSession } from "@/lib/auth";
 
 export default async function LoginPage() {
   const session = await getCurrentSession();
+  const language = getRequestLanguage();
+  const t = createTranslator(language);
 
   if (session?.user) {
     redirect("/dashboard");
@@ -17,16 +21,16 @@ export default async function LoginPage() {
         <Card className="border-none shadow-xl">
           <CardHeader>
             <CardTitle className="text-2xl font-semibold">
-              Welcome back
+              {t("login.page.title")}
             </CardTitle>
             <p className="text-sm text-neutral-500">
-              Sign in to build and run flashcard sessions.
+              {t("login.page.subtitle")}
             </p>
           </CardHeader>
           <CardContent>
             <LoginForm />
             <p className="mt-6 text-sm text-neutral-500">
-              Account access is managed by your program administrator.
+              {t("login.page.notice")}
             </p>
           </CardContent>
         </Card>

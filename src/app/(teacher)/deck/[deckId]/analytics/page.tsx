@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { createTranslator } from "@/lib/i18n";
+import { getRequestLanguage } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 import { requireSessionUser } from "@/lib/session";
 
@@ -39,6 +41,9 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
   if (!session?.user || !userId) {
     redirect("/login");
   }
+
+  const language = getRequestLanguage();
+  const t = createTranslator(language);
 
   if (!deckId) {
     notFound();
@@ -111,10 +116,10 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-3xl font-semibold text-neutral-900">{deck.title}</h1>
-          <p className="text-sm text-neutral-500">Session analytics</p>
+          <p className="text-sm text-neutral-500">{t("analytics.header.subtitle")}</p>
         </div>
         <Button asChild variant="outline" size="sm">
-          <Link href={`/deck/${deck.id}/build`}>Back to builder</Link>
+          <Link href={`/deck/${deck.id}/build`}>{t("analytics.header.back")}</Link>
         </Button>
       </div>
 
@@ -122,7 +127,7 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
         <Card className="border-neutral-200">
           <CardHeader>
             <CardTitle className="text-sm uppercase tracking-wide text-neutral-500">
-              Students participated
+              {t("analytics.stats.students")}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-3xl font-semibold text-neutral-900">
@@ -132,7 +137,7 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
         <Card className="border-neutral-200">
           <CardHeader>
             <CardTitle className="text-sm uppercase tracking-wide text-neutral-500">
-              Total responses
+              {t("analytics.stats.responses")}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-3xl font-semibold text-neutral-900">
@@ -142,7 +147,7 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
         <Card className="border-neutral-200">
           <CardHeader>
             <CardTitle className="text-sm uppercase tracking-wide text-neutral-500">
-              Cards
+              {t("analytics.stats.cards")}
             </CardTitle>
           </CardHeader>
           <CardContent className="text-3xl font-semibold text-neutral-900">
@@ -155,10 +160,10 @@ export default async function DeckAnalyticsPage({ params }: AnalyticsPageProps) 
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-1/3">Card</TableHead>
-              <TableHead className="w-1/6 text-center">Mastered</TableHead>
-              <TableHead className="w-1/6 text-center">Avg knows</TableHead>
-              <TableHead className="w-1/6 text-center">Refresher clicks</TableHead>
+              <TableHead className="w-1/3">{t("analytics.table.card")}</TableHead>
+              <TableHead className="w-1/6 text-center">{t("analytics.table.mastered")}</TableHead>
+              <TableHead className="w-1/6 text-center">{t("analytics.table.avgKnows")}</TableHead>
+              <TableHead className="w-1/6 text-center">{t("analytics.table.refresherClicks")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

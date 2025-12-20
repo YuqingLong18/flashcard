@@ -35,23 +35,15 @@ import {
   deckUpdateSchema,
 } from "@/lib/validators";
 import type { DeckWithCards } from "@/types/deck";
+import { useLanguage, useTranslations } from "@/components/providers/language-provider";
 
 type DeckUpdateFormInput = z.input<typeof deckUpdateSchema>;
 type CardCreateFormInput = z.input<typeof cardCreateSchema>;
 type CardUpdateFormInput = z.input<typeof cardUpdateSchema>;
-const aiSuggestionFormSchema = z.object({
-  description: z
-    .string()
-    .trim()
-    .min(10, "Please describe the deck (10+ characters).")
-    .max(600, "Keep descriptions under 600 characters."),
-  count: z
-    .number()
-    .int("Card count must be a whole number.")
-    .min(1, "You can request at least 1 card.")
-    .max(20, "You can request at most 20 cards."),
-});
-type AiSuggestionFormValues = z.infer<typeof aiSuggestionFormSchema>;
+type AiSuggestionFormValues = {
+  description: string;
+  count: number;
+};
 
 interface DeckBuilderProps {
   deck: DeckWithCards;
@@ -92,6 +84,8 @@ function toPreviewUrl(value?: string | null) {
 
 export function DeckBuilder({ deck }: DeckBuilderProps) {
   const router = useRouter();
+  const { language } = useLanguage();
+  const t = useTranslations();
   const [isPublished, setIsPublished] = useState(deck.isPublished);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [bulkImageState, setBulkImageState] = useState<{
@@ -110,11 +104,19 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
     () => deck.cards.filter((card) => !card.imageUrl).length,
     [deck.cards],
   );
+  const summaryFormatter = useMemo(
+    () =>
+      new Intl.ListFormat(language === "zh" ? "zh-CN" : "en-US", {
+        style: "long",
+        type: "conjunction",
+      }),
+    [language],
+  );
 
   const handleGenerateMissingImages = async () => {
     const cardsWithoutImages = deck.cards.filter((card) => !card.imageUrl);
     if (cardsWithoutImages.length === 0) {
-      toast.info("All cards already have images.");
+      toast.info(t("deck.builder.images.allHave"));
       return;
     }
 
@@ -126,7 +128,7 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
     });
 
     const summarize = (input: string) =>
-      input.replace(/\s+/g, " ").trim().slice(0, 80) || "Card";
+      input.replace(/\s+/g, " ").trim().slice(0, 80) || t("deck.builder.images.placeholderFront");
 
     let generatedCount = 0;
     let skippedCount = 0;
@@ -157,8 +159,8 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
           failedCount += 1;
           const errorMessage =
             (payload as { error?: string } | null)?.error ??
-            "Image generation failed.";
-          toast.error(`Image failed for “${summarize(card.front)}”`, {
+            t("deck.builder.images.errorGeneral");
+          toast.error(t("deck.builder.images.singleFail", { front: summarize(card.front) }), {
             description: errorMessage,
           });
         } else if (data && typeof data === "object" && "skipped" in data) {
@@ -176,8 +178,8 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
         const message =
           error instanceof Error && error.message
             ? error.message
-            : "Image generation failed.";
-        toast.error(`Image failed for “${summarize(card.front)}”`, {
+            : t("deck.builder.images.errorGeneral");
+        toast.error(t("deck.builder.images.singleFail", { front: summarize(card.front) }), {
           description: message,
         });
       }
@@ -198,21 +200,32 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
     router.refresh();
 
     if (generatedCount > 0) {
-      const summary: string[] = [`${generatedCount} generated`];
+      const summaryParts: string[] = [
+        t("deck.builder.images.summary.generated", { count: generatedCount }),
+      ];
       if (skippedCount > 0) {
-        summary.push(`${skippedCount} skipped`);
+        summaryParts.push(
+          t("deck.builder.images.summary.skipped", { count: skippedCount }),
+        );
       }
       if (failedCount > 0) {
-        summary.push(`${failedCount} failed`);
+        summaryParts.push(
+          t("deck.builder.images.summary.failed", { count: failedCount }),
+        );
       }
-      toast.success(`Image generation finished (${summary.join(", ")}).`);
+      const summaryText = summaryFormatter.format(summaryParts);
+      toast.success(
+        summaryText
+          ? t("deck.builder.images.successWithSummary", { summary: summaryText })
+          : t("deck.builder.images.success"),
+      );
     } else if (skippedCount > 0 && failedCount === 0) {
-      toast.info("All cards already had images.");
+      toast.info(t("deck.builder.images.allHave"));
     } else if (failedCount > 0) {
       toast.error(
         failedCount === cardsWithoutImages.length
-          ? "Image generation failed for all cards."
-          : "Image generation completed with some failures.",
+          ? t("deck.builder.images.failedAll")
+          : t("deck.builder.images.failedSome"),
       );
     }
   };
@@ -233,7 +246,9 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
       </aside>
       <section className="space-y-4 rounded-2xl border border-[#dccaFF] bg-[#fbf8ff] p-5 shadow-[0_10px_35px_-30px_rgba(120,80,185,0.55)]">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold text-[#3f2b7f]">Cards</h2>
+          <h2 className="text-xl font-semibold text-[#3f2b7f]">
+            {t("deck.build.cardsHeading")}
+          </h2>
           <div className="flex flex-wrap items-center gap-2">
             <AiSuggestionDialog
               deckId={deck.id}
@@ -249,10 +264,13 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
               disabled={bulkImageState.running}
             >
               {bulkImageState.running
-                ? `Generating… (${bulkImageState.completed}/${bulkImageState.total})`
+                ? t("deck.build.generatingStatus", {
+                    completed: bulkImageState.completed,
+                    total: bulkImageState.total,
+                  })
                 : missingImageCount > 0
-                  ? `Generate images (${missingImageCount})`
-                  : "Generate images"}
+                  ? t("deck.build.generateImagesCount", { count: missingImageCount })
+                  : t("deck.build.generateImages")}
             </Button>
             <AddCardDialog deckId={deck.id} onComplete={() => router.refresh()} />
           </div>
@@ -260,8 +278,12 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
         {bulkImageState.running &&
           bulkImageState.currentFront.replace(/\s+/g, " ").trim().length > 0 && (
             <p className="text-xs text-[#7a68b6]">
-              Working on “
-              {bulkImageState.currentFront.replace(/\s+/g, " ").trim().slice(0, 80)}”
+              {t("deck.build.workingOn", {
+                front: bulkImageState.currentFront
+                  .replace(/\s+/g, " ")
+                  .trim()
+                  .slice(0, 80),
+              })}
             </p>
           )}
         <CardTable
@@ -282,7 +304,7 @@ export function DeckBuilder({ deck }: DeckBuilderProps) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewImage}
-              alt="Card image full view"
+              alt={t("play.modal.imageAlt")}
               className="h-full w-full object-contain"
             />
           </div>
@@ -304,6 +326,7 @@ function DeckMetadataForm({
   onSaved: () => void;
 }) {
   const router = useRouter();
+  const t = useTranslations();
   const form = useForm<DeckUpdateFormInput>({
     resolver: zodResolver(deckUpdateSchema),
     defaultValues: {
@@ -339,11 +362,11 @@ function DeckMetadataForm({
 
     if (!response.ok) {
       const payloadJson = await response.json().catch(() => null);
-      toast.error(payloadJson?.error ?? "Failed to update deck.");
+      toast.error((payloadJson as { error?: string } | null)?.error ?? t("deck.metadata.toast.updateError"));
       return;
     }
 
-    toast.success("Deck details saved.");
+    toast.success(t("deck.metadata.toast.updateSuccess"));
     onSaved();
     form.reset(values);
     router.refresh();
@@ -360,26 +383,30 @@ function DeckMetadataForm({
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Unable to update publish state.");
+      toast.error((payload as { error?: string } | null)?.error ?? t("deck.metadata.toast.publishError"));
       return;
     }
 
     const next = !isPublished;
     onPublishChange(next);
-    toast.success(next ? "Deck published." : "Deck unpublished.");
+    toast.success(next ? t("deck.metadata.toast.published") : t("deck.metadata.toast.unpublished"));
   };
 
   return (
     <div className="space-y-4 rounded-2xl border border-[#dccaff] bg-[#fbf8ff] p-5 shadow-[0_10px_35px_-30px_rgba(120,80,185,0.6)]">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[#402c7c]">Deck settings</h2>
+        <h2 className="text-lg font-semibold text-[#402c7c]">{t("deck.metadata.heading")}</h2>
         <Button
           size="sm"
           variant={isPublished ? "outline" : "default"}
           onClick={togglePublish}
           disabled={publishLoading}
         >
-          {publishLoading ? "Updating…" : isPublished ? "Unpublish" : "Publish"}
+          {publishLoading
+            ? t("deck.metadata.publishButton.updating")
+            : isPublished
+              ? t("deck.metadata.publishButton.unpublish")
+              : t("deck.metadata.publishButton.publish")}
         </Button>
       </div>
       <Form {...form}>
@@ -389,7 +416,7 @@ function DeckMetadataForm({
             name="title"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Title</FormLabel>
+                <FormLabel>{t("deck.metadata.form.titleLabel")}</FormLabel>
                 <FormControl>
                   <Input {...field} />
                 </FormControl>
@@ -402,7 +429,7 @@ function DeckMetadataForm({
             name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Description</FormLabel>
+                <FormLabel>{t("deck.metadata.form.descriptionLabel")}</FormLabel>
                 <FormControl>
                   <Textarea {...field} rows={3} value={field.value ?? ""} />
                 </FormControl>
@@ -415,21 +442,25 @@ function DeckMetadataForm({
             name="language"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Language</FormLabel>
+                <FormLabel>{t("deck.metadata.form.languageLabel")}</FormLabel>
                 <FormControl>
-                  <Input {...field} placeholder="en" value={field.value ?? ""} />
+                  <Input
+                    {...field}
+                    placeholder={t("deck.metadata.form.languagePlaceholder")}
+                    value={field.value ?? ""}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
           <Button type="submit" className="w-full" disabled={isSaving}>
-            {isSaving ? "Saving…" : "Save changes"}
+            {isSaving ? t("deck.metadata.form.saving") : t("deck.metadata.form.save")}
           </Button>
         </form>
       </Form>
       <p className="text-xs text-[#7a68b6]">
-        Publish to allow live runs. Students can only join published decks.
+        {t("deck.metadata.notice")}
       </p>
     </div>
   );
@@ -438,12 +469,13 @@ function DeckMetadataForm({
 function BulkImportForm({ deckId, onComplete }: { deckId: string; onComplete: () => void }) {
   const [csv, setCsv] = useState("");
   const [isImporting, setIsImporting] = useState(false);
+  const t = useTranslations();
 
   const rows = useMemo(() => parseCsvRows(csv), [csv]);
 
   const handleImport = async () => {
     if (rows.length === 0) {
-      toast.error("Add at least one row with front,back values.");
+      toast.error(t("deck.bulk.error.empty"));
       return;
     }
 
@@ -457,11 +489,11 @@ function BulkImportForm({ deckId, onComplete }: { deckId: string; onComplete: ()
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Import failed.");
+      toast.error((payload as { error?: string } | null)?.error ?? t("deck.bulk.error.failed"));
       return;
     }
 
-    toast.success(`Imported ${rows.length} cards.`);
+    toast.success(t("deck.bulk.success", { count: rows.length }));
     setCsv("");
     onComplete();
   };
@@ -469,21 +501,26 @@ function BulkImportForm({ deckId, onComplete }: { deckId: string; onComplete: ()
   return (
     <div className="space-y-4 rounded-2xl border border-dashed border-[#d9c8ff] bg-[#f5efff] p-5">
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-[#3f2b7f]">Bulk import</h3>
+        <h3 className="text-sm font-semibold text-[#3f2b7f]">{t("deck.bulk.heading")}</h3>
         <p className="text-xs text-[#7a68b6]">
-          Paste CSV rows with <code className="rounded bg-[#efe4ff] px-1">front</code>,
-          <code className="rounded bg-[#efe4ff] px-1">back</code>, and optional
-          <code className="rounded bg-[#efe4ff] px-1">imageUrl</code> columns.
+          {t("deck.bulk.instructions")}
+          <code className="rounded bg-[#efe4ff] px-1">front</code>,
+          <code className="rounded bg-[#efe4ff] px-1">back</code>,
+          <code className="rounded bg-[#efe4ff] px-1">imageUrl</code>
         </p>
       </div>
       <Textarea
         value={csv}
         onChange={(event) => setCsv(event.target.value)}
-        placeholder={`photosynthesis,process used by plants to convert light energy\nchlorophyll,pigment that absorbs light`}
+        placeholder={t("deck.bulk.placeholder")}
         rows={6}
       />
       <Button onClick={handleImport} disabled={isImporting || rows.length === 0} className="w-full">
-        {isImporting ? "Importing…" : `Import ${rows.length} row${rows.length === 1 ? "" : "s"}`}
+        {isImporting
+          ? t("deck.bulk.importing")
+          : rows.length === 1
+            ? t("deck.bulk.importButton", { count: rows.length })
+            : t("deck.bulk.importButtonPlural", { count: rows.length })}
       </Button>
     </div>
   );
@@ -526,8 +563,25 @@ function AiSuggestionDialog({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const defaultDescription = (deckDescription ?? "").trim();
   const normalizedLanguage = (deckLanguage ?? "").trim();
+  const t = useTranslations();
+  const schema = useMemo(
+    () =>
+      z.object({
+        description: z
+          .string()
+          .trim()
+          .min(10, t("deck.builder.ai.descriptionMin"))
+          .max(600, t("deck.builder.ai.descriptionMax")),
+        count: z
+          .number()
+          .int(t("deck.builder.ai.countInteger"))
+          .min(1, t("deck.builder.ai.countMin"))
+          .max(20, t("deck.builder.ai.countMax")),
+      }),
+    [t],
+  );
   const form = useForm<AiSuggestionFormValues>({
-    resolver: zodResolver(aiSuggestionFormSchema),
+    resolver: zodResolver(schema),
     defaultValues: {
       description: defaultDescription,
       count: 5,
@@ -559,7 +613,7 @@ function AiSuggestionDialog({
       const payload = await response.json().catch(() => null);
       const errorMessage =
         (payload as { error?: string } | null)?.error ??
-        "AI suggestions failed.";
+        t("deck.ai.toast.error");
       toast.error(errorMessage);
       return;
     }
@@ -586,13 +640,9 @@ function AiSuggestionDialog({
     }
 
     if (createdCount === 0) {
-      toast.info(
-        "The AI response did not add any cards. Try refining your description.",
-      );
+      toast.info(t("deck.ai.toast.empty"));
     } else {
-      toast.success(
-        `Added ${createdCount} AI-generated card${createdCount === 1 ? "" : "s"}.`,
-      );
+      toast.success(t("deck.ai.toast.success", { count: createdCount }));
     }
 
     setOpen(false);
@@ -602,19 +652,17 @@ function AiSuggestionDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">AI suggestion</Button>
+        <Button size="sm">{t("deck.ai.trigger")}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>AI suggestions</DialogTitle>
-          <DialogDescription>
-            Describe the cards you need and we&apos;ll draft them for you.
-          </DialogDescription>
+          <DialogTitle>{t("deck.ai.title")}</DialogTitle>
+          <DialogDescription>{t("deck.ai.description")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-1 rounded-lg border border-[#eadfff] bg-[#f8f3ff] p-3 text-xs text-[#6d53ad]">
           <p className="font-medium text-[#3e2f7c]">{deckTitle}</p>
           {defaultDescription && <p className="leading-snug">{defaultDescription}</p>}
-          {normalizedLanguage && <p>Language: {normalizedLanguage}</p>}
+          {normalizedLanguage && <p>{t("deck.ai.languageLabel", { language: normalizedLanguage })}</p>}
         </div>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
@@ -623,14 +671,14 @@ function AiSuggestionDialog({
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>What do you need?</FormLabel>
+                  <FormLabel>{t("deck.ai.form.promptLabel")}</FormLabel>
                   <FormControl>
                     <Textarea
                       {...field}
                       value={field.value ?? ""}
                       onChange={(event) => field.onChange(event.target.value)}
                       rows={4}
-                      placeholder="Introduce the topic, goals, level, or standards you want these cards to cover."
+                      placeholder={t("deck.ai.form.promptPlaceholder")}
                     />
                   </FormControl>
                   <FormMessage />
@@ -642,7 +690,7 @@ function AiSuggestionDialog({
               name="count"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Number of cards</FormLabel>
+                  <FormLabel>{t("deck.ai.form.countLabel")}</FormLabel>
                   <FormControl>
                     <Input
                       {...field}
@@ -664,7 +712,7 @@ function AiSuggestionDialog({
             />
             <DialogFooter>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Generating…" : "Add cards"}
+                {isSubmitting ? t("deck.ai.submitting") : t("deck.ai.submit")}
               </Button>
             </DialogFooter>
           </form>
@@ -681,6 +729,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const t = useTranslations();
 
   const form = useForm<CardCreateFormInput>({
     resolver: zodResolver(cardCreateSchema),
@@ -727,7 +776,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
       if (file.type.startsWith("image/")) {
         setUploadedFile(file);
       } else {
-        toast.error("Please upload an image file.");
+        toast.error(t("deck.card.toast.uploadInvalid"));
       }
     }
   };
@@ -738,7 +787,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
       if (file.type.startsWith("image/")) {
         setUploadedFile(file);
       } else {
-        toast.error("Please upload an image file.");
+        toast.error(t("deck.card.toast.uploadInvalid"));
       }
     }
   };
@@ -853,9 +902,9 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
           form.setValue("front", front);
         } catch (error) {
           toast.error(
-            error instanceof Error
-              ? `Failed to generate front: ${error.message}`
-              : "Failed to generate front description.",
+            error instanceof Error && error.message
+              ? t("deck.card.toast.generateFrontError", { message: error.message })
+              : t("deck.card.toast.generateFrontFallback"),
           );
           setIsSaving(false);
           setIsGeneratingFront(false);
@@ -866,7 +915,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
 
       // Ensure front is set (should be guaranteed by now, but double-check)
       if (!front || front.trim().length === 0) {
-        toast.error("Front is required. Please provide a front or ensure it was generated.");
+        toast.error(t("deck.card.toast.frontRequired"));
         setIsSaving(false);
         return;
       }
@@ -877,9 +926,9 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
           imageUrl = await uploadFile(uploadedFile);
         } catch (error) {
           toast.error(
-            error instanceof Error
-              ? `Failed to upload image: ${error.message}`
-              : "Failed to upload image.",
+            error instanceof Error && error.message
+              ? t("deck.card.toast.uploadFailedWithReason", { message: error.message })
+              : t("deck.card.toast.uploadFailed"),
           );
           setIsSaving(false);
           return;
@@ -892,7 +941,7 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
         } catch (error) {
           // Don't fail the whole operation if image generation fails
           console.warn("Image generation failed:", error);
-          toast.warning("Continuing without an image because generation failed.");
+          toast.warning(t("deck.card.toast.continueWithoutImage"));
         }
         setIsGeneratingImage(false);
       }
@@ -912,19 +961,19 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        toast.error(payload?.error ?? "Unable to add card.");
+        toast.error((payload as { error?: string } | null)?.error ?? t("deck.card.toast.addFailed"));
         setIsSaving(false);
         return;
       }
 
-      toast.success("Card added.");
+      toast.success(t("deck.card.toast.addSuccess"));
       form.reset({ front: "", back: "", imageUrl: undefined });
       setUploadedFile(null);
       setOpen(false);
       onComplete();
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to add card.",
+        error instanceof Error && error.message ? error.message : t("deck.card.toast.addFailed"),
       );
     } finally {
       setIsSaving(false);
@@ -945,14 +994,12 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Add card</Button>
+        <Button variant="outline">{t("deck.card.add")}</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New card</DialogTitle>
-          <DialogDescription>
-            Provide the answer/keyword (back). Front will be auto-generated if left empty. Drag & drop an image or let AI generate one.
-          </DialogDescription>
+          <DialogTitle>{t("deck.card.newTitle")}</DialogTitle>
+          <DialogDescription>{t("deck.card.newDescription")}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
@@ -961,9 +1008,14 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
               name="back"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Back (Answer/Keyword) *</FormLabel>
+                  <FormLabel>{t("deck.card.backLabel")}</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={4} value={field.value ?? ""} placeholder="Enter the answer or keyword..." />
+                    <Textarea
+                      {...field}
+                      rows={4}
+                      value={field.value ?? ""}
+                      placeholder={t("deck.card.backPlaceholder")}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -974,16 +1026,21 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
               name="front"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Front (Optional - will be auto-generated if empty)</FormLabel>
+                  <FormLabel>{t("deck.card.frontLabel")}</FormLabel>
                   <FormControl>
-                    <Textarea {...field} rows={3} value={field.value ?? ""} placeholder="Leave empty to auto-generate from back..." />
+                    <Textarea
+                      {...field}
+                      rows={3}
+                      value={field.value ?? ""}
+                      placeholder={t("deck.card.frontPlaceholder")}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <div className="space-y-2">
-              <FormLabel>Image (Optional)</FormLabel>
+              <FormLabel>{t("deck.card.imageLabel")}</FormLabel>
               <div
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
@@ -1004,13 +1061,13 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
                       size="sm"
                       onClick={() => setUploadedFile(null)}
                     >
-                      Remove
+                      {t("deck.card.imageRemove")}
                     </Button>
                   </div>
                 ) : (
                   <>
                     <p className="text-sm text-[#7a68b6] mb-2">
-                      Drag & drop an image here, or click to browse
+                      {t("deck.card.imageDrop")}
                     </p>
                     <Input
                       type="file"
@@ -1025,10 +1082,10 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
                       size="sm"
                       onClick={() => document.getElementById("image-upload")?.click()}
                     >
-                      Browse files
+                      {t("deck.card.imageBrowse")}
                     </Button>
                     <p className="text-xs text-[#8f7cc8] mt-2">
-                      If no image is provided, AI will generate one automatically
+                      {t("deck.card.imageHint")}
                     </p>
                   </>
                 )}
@@ -1040,12 +1097,12 @@ function AddCardDialog({ deckId, onComplete }: { deckId: string; onComplete: () 
                 disabled={isSaving || isGeneratingFront || isGeneratingImage}
               >
                 {isGeneratingFront
-                  ? "Generating front…"
+                  ? t("deck.card.state.generatingFront")
                   : isGeneratingImage
-                    ? "Generating image…"
+                    ? t("deck.card.state.generatingImage")
                     : isSaving
-                      ? "Adding…"
-                      : "Add card"}
+                      ? t("deck.card.state.adding")
+                      : t("deck.card.add")}
               </Button>
             </DialogFooter>
           </form>
@@ -1064,10 +1121,11 @@ function CardTable({
   onChanged: () => void;
   onPreviewImage: (url: string) => void;
 }) {
+  const t = useTranslations();
   if (cards.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-[#d9c8ff] bg-[#f9f5ff] py-16 text-center">
-        <p className="text-sm text-[#5a46a5]">No cards yet. Add your first one to get started.</p>
+        <p className="text-sm text-[#5a46a5]">{t("deck.table.empty")}</p>
         <Skeleton className="h-3 w-40 rounded" />
       </div>
     );
@@ -1078,10 +1136,10 @@ function CardTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-1/3">Front</TableHead>
-            <TableHead className="w-1/3">Back</TableHead>
-            <TableHead className="w-1/6">Image</TableHead>
-            <TableHead className="w-32 text-right">Actions</TableHead>
+            <TableHead className="w-1/3">{t("deck.table.front")}</TableHead>
+            <TableHead className="w-1/3">{t("deck.table.back")}</TableHead>
+            <TableHead className="w-1/6">{t("deck.table.image")}</TableHead>
+            <TableHead className="w-32 text-right">{t("deck.table.actions")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -1122,10 +1180,10 @@ function CardTable({
                         }
                       }}
                     />
-                    <span className="sr-only">View image</span>
+                    <span className="sr-only">{t("deck.table.viewImage")}</span>
                   </button>
                 ) : (
-                  <span className="text-xs text-[#8f7cc8]">None</span>
+                  <span className="text-xs text-[#8f7cc8]">{t("deck.table.none")}</span>
                 )}
               </TableCell>
               <TableCell className="text-right">
@@ -1152,6 +1210,7 @@ function EditCardDialog({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [customPrompt, setCustomPrompt] = useState("");
+  const t = useTranslations();
 
   const form = useForm<CardUpdateFormInput>({
     resolver: zodResolver(cardUpdateSchema),
@@ -1174,11 +1233,11 @@ function EditCardDialog({
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Failed to update card.");
+      toast.error((payload as { error?: string } | null)?.error ?? t("deck.card.edit.updateError"));
       return;
     }
 
-    toast.success("Card updated.");
+    toast.success(t("deck.card.edit.updateSuccess"));
     setOpen(false);
     onChanged();
   };
@@ -1192,11 +1251,11 @@ function EditCardDialog({
 
     if (!response.ok) {
       const payload = await response.json().catch(() => null);
-      toast.error(payload?.error ?? "Unable to delete card.");
+      toast.error((payload as { error?: string } | null)?.error ?? t("deck.card.edit.deleteError"));
       return;
     }
 
-    toast.success("Card deleted.");
+    toast.success(t("deck.card.edit.deleteSuccess"));
     setOpen(false);
     onChanged();
   };
@@ -1207,7 +1266,7 @@ function EditCardDialog({
     const backRaw = (current.back ?? card.back)?.trim() ?? "";
 
     if (!front) {
-      toast.error("Front text is required to generate an image.");
+      toast.error(t("deck.card.edit.imageFrontRequired"));
       return;
     }
 
@@ -1234,7 +1293,9 @@ function EditCardDialog({
 
     if (!response.ok) {
       const errorBody = await response.json().catch(() => null);
-      toast.error(errorBody?.error ?? "Image generation failed.");
+      toast.error(
+        (errorBody as { error?: string } | null)?.error ?? t("deck.card.edit.imageError"),
+      );
       return;
     }
 
@@ -1245,11 +1306,11 @@ function EditCardDialog({
       responseBody.data?.imageUrl ??
       responseBody.imageUrl;
     if (!storedUrl) {
-      toast.error("Image generation failed.");
+      toast.error(t("deck.card.edit.imageError"));
       return;
     }
     form.setValue("imageUrl", storedUrl);
-    toast.success("Image attached.");
+    toast.success(t("deck.card.edit.imageAttached"));
   };
 
   const uploadImage: React.ChangeEventHandler<HTMLInputElement> = async (event) => {
@@ -1270,7 +1331,7 @@ function EditCardDialog({
     if (!initResponse.ok) {
       setIsUploading(false);
       const payload = await initResponse.json().catch(() => null);
-      toast.error(payload?.error ?? "Upload init failed.");
+      toast.error((payload as { error?: string } | null)?.error ?? t("deck.card.edit.uploadInitError"));
       return;
     }
 
@@ -1291,27 +1352,25 @@ function EditCardDialog({
     setIsUploading(false);
 
     if (!uploadResponse.ok) {
-      toast.error("Upload failed.");
+      toast.error(t("deck.card.edit.uploadError"));
       return;
     }
 
     form.setValue("imageUrl", storedUrl ?? publicUrl ?? proxiedUrl);
-    toast.success("Image uploaded.");
+    toast.success(t("deck.card.edit.uploadSuccess"));
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm">
-          Edit
+          {t("deck.card.edit.trigger")}
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit card</DialogTitle>
-          <DialogDescription>
-            Update content, attach or remove imagery, and save changes.
-          </DialogDescription>
+          <DialogTitle>{t("deck.card.edit.title")}</DialogTitle>
+          <DialogDescription>{t("deck.card.edit.description")}</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
@@ -1320,7 +1379,7 @@ function EditCardDialog({
               name="front"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Front</FormLabel>
+                  <FormLabel>{t("deck.card.frontLabel")}</FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={3} value={field.value ?? ""} />
                   </FormControl>
@@ -1333,7 +1392,7 @@ function EditCardDialog({
               name="back"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Back</FormLabel>
+                  <FormLabel>{t("deck.card.backLabel")}</FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={4} value={field.value ?? ""} />
                   </FormControl>
@@ -1342,16 +1401,16 @@ function EditCardDialog({
               )}
             />
             <div className="space-y-2">
-              <FormLabel>Custom image prompt (optional)</FormLabel>
+              <FormLabel>{t("deck.card.edit.customPromptLabel")}</FormLabel>
               <Textarea
                 value={customPrompt}
                 onChange={(event) => setCustomPrompt(event.target.value)}
                 rows={3}
-                placeholder="Describe the scene you'd like the AI to create."
+                placeholder={t("deck.card.edit.customPromptHelp")}
                 spellCheck={false}
               />
               <p className="text-xs text-neutral-500">
-                When provided, this prompt is sent to the image model instead of the automatic prompt.
+                {t("deck.card.edit.customPromptHelp")}
               </p>
             </div>
             <FormField
@@ -1363,7 +1422,7 @@ function EditCardDialog({
                 );
                 return (
                   <FormItem className="space-y-3">
-                    <FormLabel>Image</FormLabel>
+                    <FormLabel>{t("deck.card.imageLabel")}</FormLabel>
                     {previewUrl ? (
                       <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border bg-neutral-100 p-4">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1375,7 +1434,7 @@ function EditCardDialog({
                       </div>
                     ) : (
                       <div className="rounded-xl border border-dashed border-[#d9c8ff] bg-[#f4ecff] py-6 text-center text-sm text-[#6d53ad]">
-                        No image attached.
+                        {t("deck.card.edit.noImage")}
                       </div>
                     )}
                     <div className="flex flex-wrap gap-2">
@@ -1386,7 +1445,7 @@ function EditCardDialog({
                         onClick={generateImage}
                         disabled={isGenerating}
                       >
-                        {isGenerating ? "Generating…" : "Generate"}
+                        {isGenerating ? t("deck.card.edit.generating") : t("deck.card.edit.generate")}
                       </Button>
                       <Button
                         type="button"
@@ -1396,7 +1455,7 @@ function EditCardDialog({
                         asChild
                       >
                         <label className="cursor-pointer">
-                          {isUploading ? "Uploading…" : "Upload"}
+                          {isUploading ? t("deck.card.edit.uploading") : t("deck.card.edit.upload")}
                           <input type="file" accept="image/*" className="hidden" onChange={uploadImage} />
                         </label>
                       </Button>
@@ -1407,7 +1466,7 @@ function EditCardDialog({
                           size="sm"
                           onClick={() => field.onChange(null)}
                         >
-                          Remove
+                          {t("deck.card.edit.removeImage")}
                         </Button>
                       )}
                     </div>
@@ -1431,10 +1490,10 @@ function EditCardDialog({
                 disabled={isDeleting}
                 onClick={remove}
               >
-                {isDeleting ? "Deleting…" : "Delete card"}
+                {isDeleting ? t("deck.card.edit.deleting") : t("deck.card.edit.delete")}
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving…" : "Save changes"}
+                {isSaving ? t("deck.card.edit.saving") : t("deck.card.edit.save")}
               </Button>
             </DialogFooter>
           </form>

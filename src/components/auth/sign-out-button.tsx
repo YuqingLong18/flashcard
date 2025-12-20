@@ -4,9 +4,11 @@ import { signOut } from "next-auth/react";
 import { useTransition } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useTranslations } from "@/components/providers/language-provider";
 
 export function SignOutButton() {
   const [isPending, startTransition] = useTransition();
+  const t = useTranslations();
 
   return (
     <Button
@@ -15,7 +17,7 @@ export function SignOutButton() {
       onClick={() => startTransition(() => signOut({ callbackUrl: "/" }))}
       disabled={isPending}
     >
-      {isPending ? "Signing out..." : "Sign out"}
+      {isPending ? t("auth.signingOut") : t("auth.signOut")}
     </Button>
   );
 }

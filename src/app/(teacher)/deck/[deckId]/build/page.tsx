@@ -4,10 +4,13 @@ import { notFound, redirect } from "next/navigation";
 import { DeckBuilder } from "@/components/decks/deck-builder";
 import { PlayDeckButton } from "@/components/decks/play-deck-button";
 import { Button } from "@/components/ui/button";
+import { createTranslator } from "@/lib/i18n";
+import { getRequestLanguage } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 import { getImageUrl } from "@/lib/storage";
 import { requireSessionUser } from "@/lib/session";
 import { formatDistanceToNow } from "date-fns";
+import { enUS, zhCN } from "date-fns/locale";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +37,10 @@ export default async function DeckBuildPage({ params }: BuildPageProps) {
     redirect("/login");
   }
 
+  const language = getRequestLanguage();
+  const t = createTranslator(language);
+  const locale = language === "zh" ? zhCN : enUS;
+
   if (!deckId) {
     notFound();
   }
@@ -59,13 +66,18 @@ export default async function DeckBuildPage({ params }: BuildPageProps) {
             {deck.title}
           </h1>
           <p className="text-sm text-[#6c5aa8]">
-            Updated {formatDistanceToNow(deck.updatedAt, { addSuffix: true })}
+            {t("dashboard.deck.updated", {
+              distance: formatDistanceToNow(deck.updatedAt, {
+                addSuffix: true,
+                locale,
+              }),
+            })}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <PlayDeckButton deckId={deck.id} disabled={!deck.isPublished} />
           <Button asChild variant="outline" size="sm">
-            <Link href={`/deck/${deck.id}/analytics`}>Analytics</Link>
+            <Link href={`/deck/${deck.id}/analytics`}>{t("common.analytics")}</Link>
           </Button>
         </div>
       </header>

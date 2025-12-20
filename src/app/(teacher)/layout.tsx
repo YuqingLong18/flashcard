@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Badge } from "@/components/ui/badge";
+import { createTranslator } from "@/lib/i18n";
+import { getRequestLanguage } from "@/lib/i18n-server";
 import { getCurrentSession } from "@/lib/auth";
 
 export default async function TeacherLayout({
@@ -11,6 +13,8 @@ export default async function TeacherLayout({
   children: React.ReactNode;
 }) {
   const session = await getCurrentSession();
+  const language = getRequestLanguage();
+  const t = createTranslator(language);
 
   if (!session?.user) {
     redirect("/login");
@@ -24,14 +28,14 @@ export default async function TeacherLayout({
             <Link href="/dashboard" className="text-lg font-semibold">
               Flashrooms
             </Link>
-            <Badge variant="secondary">Teacher</Badge>
+            <Badge variant="secondary">{t("teacher.badge")}</Badge>
           </div>
           <nav className="flex items-center gap-6 text-sm text-neutral-600">
             <Link href="/dashboard" className="hover:text-neutral-900">
-              Dashboard
+              {t("teacher.nav.dashboard")}
             </Link>
             <Link href="/join" className="hover:text-neutral-900">
-              Student join
+              {t("teacher.nav.join")}
             </Link>
             <SignOutButton />
           </nav>

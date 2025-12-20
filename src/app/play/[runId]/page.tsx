@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { PlayClient } from "@/components/run/play-client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createTranslator } from "@/lib/i18n";
+import { getRequestLanguage } from "@/lib/i18n-server";
 import { prisma } from "@/lib/prisma";
 
 interface PlayPageProps {
@@ -15,21 +17,20 @@ interface PlayPageProps {
 
 export default async function PlayPage({ params, searchParams }: PlayPageProps) {
   const [{ runId }, { playerId }] = await Promise.all([params, searchParams]);
+  const language = getRequestLanguage();
+  const t = createTranslator(language);
 
   if (!playerId) {
     return (
       <main className="flex flex-1 items-center justify-center px-6 py-16">
         <Card className="max-w-md border-neutral-200 text-center">
           <CardHeader>
-            <CardTitle className="text-xl">Missing player</CardTitle>
+            <CardTitle className="text-xl">{t("play.error.missingPlayer.title")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-neutral-500">
-            <p>
-              We couldn&apos;t find your session. Return to the join page and enter the
-              code again.
-            </p>
+            <p>{t("play.error.missingPlayer.text")}</p>
             <Link href="/join" className="text-neutral-900 underline">
-              Back to join
+              {t("play.error.linkBack")}
             </Link>
           </CardContent>
         </Card>
@@ -55,12 +56,12 @@ export default async function PlayPage({ params, searchParams }: PlayPageProps) 
       <main className="flex flex-1 items-center justify-center px-6 py-16">
         <Card className="max-w-md border-neutral-200 text-center">
           <CardHeader>
-            <CardTitle className="text-xl">Run not found</CardTitle>
+            <CardTitle className="text-xl">{t("play.error.runNotFound.title")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-neutral-500">
-            <p>This session may have ended or expired.</p>
+            <p>{t("play.error.runNotFound.text")}</p>
             <Link href="/join" className="text-neutral-900 underline">
-              Back to join
+              {t("play.error.linkBack")}
             </Link>
           </CardContent>
         </Card>
@@ -78,12 +79,12 @@ export default async function PlayPage({ params, searchParams }: PlayPageProps) 
       <main className="flex flex-1 items-center justify-center px-6 py-16">
         <Card className="max-w-md border-neutral-200 text-center">
           <CardHeader>
-            <CardTitle className="text-xl">You left the run</CardTitle>
+            <CardTitle className="text-xl">{t("play.error.leftRun.title")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-neutral-500">
-            <p>Ask your teacher for a fresh code to rejoin.</p>
+            <p>{t("play.error.leftRun.text")}</p>
             <Link href="/join" className="text-neutral-900 underline">
-              Back to join
+              {t("play.error.linkBack")}
             </Link>
           </CardContent>
         </Card>
